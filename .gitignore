@@ -46,5 +46,8 @@ dist/
 .DS_Store
 Thumbs.db
 
+# Repositório embutido
+FBref-Scraper/
+
 # Poetry
-poetry.lockFBref-Scraper/
+poetry.lock
