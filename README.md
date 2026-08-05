@@ -9,6 +9,7 @@
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)
+![CI/CD](https://github.com/Gledson2012/FBref-Scraper/actions/workflows/ci.yml/badge.svg)
 
 [🚀 Início Rápido](#-início-rápido) • [📚 Endpoints](#-endpoints) • [🏆 Ligas Suportadas](#-ligas-suportadas) • [🛠️ Tecnologias](#️-tecnologias) • [📖 Documentação](#-documentação)
 
