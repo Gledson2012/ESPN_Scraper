@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     # API
     API_V1_PREFIX: str = "/api/v1"
     PROJECT_NAME: str = "FBref Scraper"
-    VERSION: str = "1.0.0"
+    VERSION: str = "1.1.0"
     APP_DEBUG: bool = True
 
     # Scraping

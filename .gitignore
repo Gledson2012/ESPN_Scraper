@@ -51,3 +51,6 @@ FBref-Scraper/
 
 # Poetry
 poetry.lock
+
+# Artifacts
+.artifacts/
