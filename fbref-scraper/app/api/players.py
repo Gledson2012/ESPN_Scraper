@@ -1,12 +1,17 @@
+import logging
 from typing import List, Optional
 
+import requests
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
+from app.api.security import require_api_key, scrape_rate_limiter
 from app.database import get_db
 from app.models import Player
 from app.schemas import PlayerCreate, PlayerUpdate, PlayerResponse
 from app.services.fbref import FBrefService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/players", tags=["players"])
 
@@ -115,6 +120,7 @@ def delete_player(player_id: int, db: Session = Depends(get_db)):
 @router.post(
     "/scrape",
     response_model=List[PlayerResponse],
+    dependencies=[Depends(require_api_key), Depends(scrape_rate_limiter)],
     summary="Scraping de jogadores do FBref",
     description="""
     Busca jogadores de um time específico no FBref e salva no banco de dados.
@@ -131,6 +137,13 @@ def scrape_players(
     db: Session = Depends(get_db),
 ):
     """Busca jogadores de um time no FBref e salva no banco."""
-    service = FBrefService(db)
-    players = service.scrape_and_save_players(fbref_team_id, season)
-    return players
+    try:
+        service = FBrefService(db)
+        players = service.scrape_and_save_players(fbref_team_id, season)
+        return players
+    except requests.exceptions.RequestException as e:
+        logger.warning(f"Falha ao acessar o FBref ({fbref_team_id} {season}): {e}")
+        raise HTTPException(
+            status_code=502,
+            detail="Não foi possível acessar o FBref (proteção anti-bot ou falha de rede). Tente novamente mais tarde.",
+        )

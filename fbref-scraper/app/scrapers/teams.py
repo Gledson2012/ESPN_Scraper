@@ -6,6 +6,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from app.config import settings
+from app.scrapers.leagues import resolve_league_code
 
 logger = logging.getLogger(__name__)
 
@@ -15,38 +16,13 @@ class TeamsScraper:
 
     BASE_URL = "https://fbref.com"
 
-    # Mapeamento de nomes de liga para IDs/códigos do FBref
-    LEAGUE_CODES = {
-        "Serie-A": "9",
-        "Brasileirao-Serie-A": "9",
-        "Serie A": "9",
-        "Premier-League": "9",
-        "La-Liga": "12",
-        "Bundesliga": "20",
-        "Serie-A-Italy": "11",
-        "Ligue-1": "13",
-        "Eredivisie": "23",
-        "Primeira-Liga": "32",
-        "MLS": "22",
-        "Liga-MX": "31",
-        "Libertadores": "18",
-        "Champions-League": "8",
-    }
-
     def __init__(self):
         self.session = requests.Session()
         self.session.headers.update({"User-Agent": settings.USER_AGENT})
 
     def _resolve_league_code(self, league: str) -> str:
         """Resolve o código numérico da liga no FBref."""
-        # Normaliza o nome da liga para busca
-        normalized = league.strip().title()
-        for key, code in self.LEAGUE_CODES.items():
-            if key.lower() == normalized.lower() or key.lower() in league.lower() or league.lower() in key.lower():
-                return code
-        # Padrão: Serie A
-        logger.warning(f"Liga '{league}' não mapeada, usando código 9 (Serie A)")
-        return "9"
+        return resolve_league_code(league)
 
     def _get_soup(self, url: str) -> BeautifulSoup:
         """Faz a requisição e retorna o BeautifulSoup da página."""

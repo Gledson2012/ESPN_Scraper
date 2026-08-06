@@ -37,5 +37,10 @@ class Settings(BaseSettings):
     CLOUDBET_API_KEY: str = ""
     CLOUDBET_BASE_URL: str = "https://sports-api.cloudbet.com/v2"
 
+    # Segurança dos endpoints de scraping
+    API_KEY: str = ""  # Se vazio, os endpoints de scraping ficam abertos (sem auth)
+    SCRAPE_RATE_LIMIT: int = 30  # Máximo de requisições de scraping por IP por janela
+    SCRAPE_RATE_WINDOW: int = 60  # Janela do rate limit (em segundos)
+
 
 settings = Settings()

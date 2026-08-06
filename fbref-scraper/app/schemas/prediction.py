@@ -1,5 +1,4 @@
 from pydantic import BaseModel, Field
-from typing import Optional
 
 
 class PredictionRequest(BaseModel):
@@ -7,8 +6,6 @@ class PredictionRequest(BaseModel):
 
     home_team_id: int = Field(..., description="ID do time da casa", examples=[1])
     away_team_id: int = Field(..., description="ID do time visitante", examples=[2])
-    competition: Optional[str] = Field(None, description="Competição", examples=["Serie-A"])
-    season: Optional[str] = Field(None, description="Temporada", examples=["2024-2025"])
 
 
 class PredictionResponse(BaseModel):

@@ -124,9 +124,7 @@ uvicorn app.main:app --reload
 ```json
 {
   "home_team_id": 1,
-  "away_team_id": 2,
-  "competition": "Serie-A",
-  "season": "2024-2025"
+  "away_team_id": 2
 }
 ```
 
@@ -171,11 +169,13 @@ fbref-scraper/
 │   │   ├── fbref.py         # Serviço que orquestra scrapers e banco
 │   │   └── cloudbet.py      # Serviço de integração com API Cloudbet
 │   ├── scrapers/            # Scrapers do FBref
+│   │   ├── leagues.py       # Mapeamento de ligas para códigos FBref
 │   │   ├── teams.py
 │   │   ├── players.py
 │   │   ├── matches.py
 │   │   └── statistics.py
 │   └── api/                 # Rotas da API
+│       ├── security.py      # API key + rate limiting dos endpoints de scraping
 │       ├── teams.py
 │       ├── players.py
 │       ├── matches.py
@@ -213,6 +213,23 @@ As configurações podem ser definidas via variáveis de ambiente ou arquivo `.e
 | `USER_AGENT` | User-Agent para scraping | Chrome UA |
 | `CLOUDBET_API_KEY` | Chave de API da Cloudbet | vazio |
 | `CLOUDBET_BASE_URL` | URL base da API Cloudbet | `https://sports-api.cloudbet.com/v2` |
+| `API_KEY` | Chave de API para endpoints de scraping (vazio = sem autenticação) | vazio |
+| `SCRAPE_RATE_LIMIT` | Máx. requisições de scraping por IP por janela | `30` |
+| `SCRAPE_RATE_WINDOW` | Janela do rate limit (s) | `60` |
+
+## 🔒 Segurança dos Endpoints de Scraping
+
+Os endpoints de scraping (`/teams/scrape`, `/players/scrape`, `/matches/scrape` e `/matches/{id}/scrape-stats`) possuem:
+
+- **Autenticação opcional via API key** — se a variável `API_KEY` estiver configurada, envie o header `X-API-Key: <sua-chave>`; sem a chave, a API responde `401`.
+- **Rate limiting por IP** — limite de `SCRAPE_RATE_LIMIT` requisições por janela de `SCRAPE_RATE_WINDOW` segundos (padrão: 30/min). Acima do limite, responde `429`.
+
+> O rate limit é **em memória** (por processo). Para múltiplos workers/instâncias, considere um backend distribuído (ex: Redis).
+
+```bash
+curl -X POST "http://localhost:8000/api/v1/teams/scrape?league=Serie-A&season=2024-2025" \
+  -H "X-API-Key: sua-chave"
+```
 
 ## 🏆 Ligas Suportadas
 
@@ -220,11 +237,11 @@ O scraper suporta as seguintes ligas (mapeadas automaticamente para os códigos 
 
 | Liga | Código FBref |
 |------|-------------|
-| Serie-A (Brasil) | 9 |
+| Serie-A (Brasil) | 24 |
 | Premier-League | 9 |
+| Serie-A-Italy | 11 |
 | La-Liga | 12 |
 | Bundesliga | 20 |
-| Serie-A-Italy | 11 |
 | Ligue-1 | 13 |
 | Eredivisie | 23 |
 | Primeira-Liga | 32 |
@@ -236,6 +253,8 @@ O scraper suporta as seguintes ligas (mapeadas automaticamente para os códigos 
 ## ⚠️ Aviso Legal
 
 Este projeto é para fins educacionais. O FBref é um site com direitos autorais. Respeite os termos de serviço do site e não faça scraping agressivo. Use o `REQUEST_DELAY` para evitar sobrecarregar o servidor.
+
+> **Importante sobre scraping:** o FBref utiliza proteção anti-bot (Cloudflare) e pode responder **HTTP 403** para requisições automatizadas, mesmo com User-Agent de navegador. Nesse caso, os endpoints de scraping retornam `502` com mensagem clara. Para dados em tempo real, utilize a integração de odds da Cloudbet. Para scraping, considere executar a partir de um IP residencial ou usar um navegador headless.
 
 ## 📄 Licença
 

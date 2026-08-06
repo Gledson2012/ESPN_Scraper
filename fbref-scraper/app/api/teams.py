@@ -1,12 +1,17 @@
+import logging
 from typing import List, Optional
 
+import requests
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
+from app.api.security import require_api_key, scrape_rate_limiter
 from app.database import get_db
 from app.models import Team
 from app.schemas import TeamCreate, TeamUpdate, TeamResponse
 from app.services.fbref import FBrefService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/teams", tags=["teams"])
 
@@ -111,6 +116,7 @@ def delete_team(team_id: int, db: Session = Depends(get_db)):
 @router.post(
     "/scrape",
     response_model=List[TeamResponse],
+    dependencies=[Depends(require_api_key), Depends(scrape_rate_limiter)],
     summary="Scraping de times do FBref",
     description="""
     Busca times de uma liga específica no FBref e salva no banco de dados.
@@ -136,6 +142,13 @@ def scrape_teams(
     db: Session = Depends(get_db),
 ):
     """Busca times de uma liga no FBref e salva no banco."""
-    service = FBrefService(db)
-    teams = service.scrape_and_save_teams(league, season)
-    return teams
+    try:
+        service = FBrefService(db)
+        teams = service.scrape_and_save_teams(league, season)
+        return teams
+    except requests.exceptions.RequestException as e:
+        logger.warning(f"Falha ao acessar o FBref ({league} {season}): {e}")
+        raise HTTPException(
+            status_code=502,
+            detail="Não foi possível acessar o FBref (proteção anti-bot ou falha de rede). Tente novamente mais tarde.",
+        )

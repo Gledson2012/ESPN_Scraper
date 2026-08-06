@@ -1,13 +1,18 @@
+import logging
 from typing import List, Optional
 from datetime import datetime
 
+import requests
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
+from app.api.security import require_api_key, scrape_rate_limiter
 from app.database import get_db
 from app.models import Match
 from app.schemas import MatchCreate, MatchUpdate, MatchResponse
 from app.services.fbref import FBrefService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/matches", tags=["matches"])
 
@@ -125,6 +130,7 @@ def delete_match(match_id: int, db: Session = Depends(get_db)):
 @router.post(
     "/scrape",
     response_model=List[MatchResponse],
+    dependencies=[Depends(require_api_key), Depends(scrape_rate_limiter)],
     summary="Scraping de partidas do FBref",
     description="""
     Busca partidas de uma liga específica no FBref e salva no banco de dados.
@@ -150,14 +156,22 @@ def scrape_matches(
     db: Session = Depends(get_db),
 ):
     """Busca partidas de uma liga no FBref e salva no banco."""
-    service = FBrefService(db)
-    matches = service.scrape_and_save_matches(league, season)
-    return matches
+    try:
+        service = FBrefService(db)
+        matches = service.scrape_and_save_matches(league, season)
+        return matches
+    except requests.exceptions.RequestException as e:
+        logger.warning(f"Falha ao acessar o FBref ({league} {season}): {e}")
+        raise HTTPException(
+            status_code=502,
+            detail="Não foi possível acessar o FBref (proteção anti-bot ou falha de rede). Tente novamente mais tarde.",
+        )
 
 
 @router.post(
     "/{match_id}/scrape-stats",
     response_model=MatchResponse,
+    dependencies=[Depends(require_api_key), Depends(scrape_rate_limiter)],
     summary="Scraping de estatísticas da partida",
     description="""
     Busca estatísticas detalhadas de uma partida no FBref e salva no banco de dados.
@@ -176,7 +190,14 @@ def scrape_match_statistics(match_id: int, db: Session = Depends(get_db)):
     if not match:
         raise HTTPException(status_code=404, detail="Partida não encontrada")
 
-    service = FBrefService(db)
-    service.scrape_and_save_match_statistics(match.fbref_id)
+    try:
+        service = FBrefService(db)
+        service.scrape_and_save_match_statistics(match.fbref_id)
+    except requests.exceptions.RequestException as e:
+        logger.warning(f"Falha ao acessar o FBref (partida {match.fbref_id}): {e}")
+        raise HTTPException(
+            status_code=502,
+            detail="Não foi possível acessar o FBref (proteção anti-bot ou falha de rede). Tente novamente mais tarde.",
+        )
     db.refresh(match)
     return match

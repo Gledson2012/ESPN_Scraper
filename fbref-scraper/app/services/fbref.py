@@ -215,7 +215,19 @@ class FBrefService:
 
         stats_data = self.statistics_scraper.get_match_statistics(fbref_match_id)
 
-        # Salvar estatísticas do time da casa
+        # Não apagar dados existentes quando a coleta não retorna estatísticas reais
+        has_stats = any(
+            key.startswith(("home_", "away_")) and key not in ("home_team", "away_team")
+            for key in stats_data
+        )
+        if not has_stats:
+            logger.warning(f"Nenhuma estatística coletada para a partida {fbref_match_id}; mantendo dados existentes")
+            return None
+
+        # Evitar duplicação: re-scraping substitui as estatísticas existentes da partida
+        self.db.query(MatchStats).filter(MatchStats.match_id == match.id).delete(synchronize_session=False)
+
+        # Salvar estatísticas do time da casa (xg_against = xG do visitante)
         home_stats = MatchStats(
             match_id=match.id,
             team_id=match.home_team_id,
@@ -229,13 +241,14 @@ class FBrefService:
             red_cards=stats_data.get("home_red_cards"),
             offsides=stats_data.get("home_offsides"),
             xg=stats_data.get("home_xg"),
+            xg_against=stats_data.get("away_xg"),
             passes=stats_data.get("home_passes"),
             tackles=stats_data.get("home_tackles"),
             saves=stats_data.get("home_saves"),
         )
         self.db.add(home_stats)
 
-        # Salvar estatísticas do time visitante
+        # Salvar estatísticas do time visitante (xg_against = xG do time da casa)
         away_stats = MatchStats(
             match_id=match.id,
             team_id=match.away_team_id,
@@ -249,6 +262,7 @@ class FBrefService:
             red_cards=stats_data.get("away_red_cards"),
             offsides=stats_data.get("away_offsides"),
             xg=stats_data.get("away_xg"),
+            xg_against=stats_data.get("home_xg"),
             passes=stats_data.get("away_passes"),
             tackles=stats_data.get("away_tackles"),
             saves=stats_data.get("away_saves"),

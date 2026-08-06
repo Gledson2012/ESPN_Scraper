@@ -49,8 +49,5 @@ Thumbs.db
 # Repositório embutido
 FBref-Scraper/
 
-# Poetry
-poetry.lock
-
 # Artifacts
 .artifacts/

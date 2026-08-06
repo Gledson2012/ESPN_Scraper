@@ -1,5 +1,5 @@
 import math
-from typing import List, Optional, Tuple
+from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -52,7 +52,7 @@ def predict_match(
     if not home_team or not away_team:
         raise HTTPException(status_code=404, detail="Time(s) não encontrado(s)")
 
-    # Obter estatísticas históricas dos times
+    # Obter estatísticas históricas dos times (casa/fora é aplicado nas funções de força)
     home_stats = _get_team_stats(db, request.home_team_id)
     away_stats = _get_team_stats(db, request.away_team_id)
 
@@ -144,14 +144,19 @@ def _calculate_attack_strength(stats: List[MatchStats], is_home: bool) -> float:
     Calcula a força de ataque de um time.
 
     Diferencia se as estatísticas são de jogos em casa ou fora.
+    Se não houver dados para o mando informado, usa todas as partidas.
     """
     if not stats:
         return 1.0
 
+    subset = [s for s in stats if s.is_home == is_home]
+    if not subset:
+        subset = stats  # fallback: usa todas as partidas
+
     total_xg = 0
     matches = 0
 
-    for stat in stats:
+    for stat in subset:
         if stat.xg is not None:
             total_xg += stat.xg
             matches += 1
@@ -169,14 +174,19 @@ def _calculate_defense_strength(stats: List[MatchStats], is_home: bool) -> float
     Calcula a força de defesa de um time.
 
     Diferencia se as estatísticas são de jogos em casa ou fora.
+    Se não houver dados para o mando informado, usa todas as partidas.
     """
     if not stats:
         return 1.0
 
+    subset = [s for s in stats if s.is_home == is_home]
+    if not subset:
+        subset = stats  # fallback: usa todas as partidas
+
     total_xg_against = 0
     matches = 0
 
-    for stat in stats:
+    for stat in subset:
         if stat.xg_against is not None:
             total_xg_against += stat.xg_against
             matches += 1
