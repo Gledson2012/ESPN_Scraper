@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 
 from app.config import settings
 from app.database import Base, engine
@@ -21,6 +22,21 @@ async def lifespan(app: FastAPI):
     """Cria as tabelas no banco de dados ao iniciar."""
     logger.info("Criando tabelas no banco de dados...")
     Base.metadata.create_all(bind=engine)
+
+    # Avisa quando o schema não é gerenciado pelo Alembic (migrações versionadas)
+    try:
+        with engine.connect() as conn:
+            has_version_table = conn.execute(
+                text("SELECT 1 FROM alembic_version")
+            ).fetchone() is not None
+    except Exception:
+        has_version_table = False
+    if not has_version_table:
+        logger.warning(
+            "Schema criado via create_all (sem tabela alembic_version). "
+            "Em produção, use 'alembic upgrade head' para migrações versionadas."
+        )
+
     logger.info("Tabelas criadas com sucesso.")
     yield
 

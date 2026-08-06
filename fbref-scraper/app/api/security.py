@@ -2,13 +2,14 @@
 
 - **Autenticação**: opcional — só é exigida quando ``API_KEY`` estiver configurada.
   Nesse caso, os clientes devem enviar o header ``X-API-Key``.
-- **Rate limiting**: janela deslizante em memória (por processo). Para múltiplos
-  workers/instâncias, considere um backend distribuído (ex: Redis).
+- **Rate limiting**: janela deslizante. Por padrão é em memória (por processo);
+  se ``REDIS_URL`` estiver configurada, usa Redis (distribuído entre workers).
   O orçamento é **global entre os endpoints de scraping** (soma de todas as
   requisições de um mesmo IP), não por endpoint.
 """
 
 import logging
+import secrets
 import threading
 import time
 from collections import defaultdict, deque
@@ -31,7 +32,7 @@ def require_api_key(x_api_key: str = Header(default="")) -> None:
 
 
 class SlidingWindowRateLimiter:
-    """Rate limiter de janela deslizante (em memória, por processo)."""
+    """Rate limiter de janela deslizante em memória (por processo)."""
 
     def __init__(self, limit: int, window_seconds: float):
         self.limit = limit
@@ -65,9 +66,52 @@ class SlidingWindowRateLimiter:
                 del self._hits[key]
 
 
-def rate_limit(limit: int, window_seconds: float) -> Callable[[Request], None]:
+class RedisSlidingWindowRateLimiter:
+    """Rate limiter de janela deslizante usando sorted sets do Redis (distribuído)."""
+
+    def __init__(
+        self,
+        redis_client,
+        limit: int,
+        window_seconds: float,
+        key_prefix: str = "scrape",
+    ):
+        self.redis = redis_client
+        self.limit = limit
+        self.window = window_seconds
+        self.key_prefix = key_prefix
+
+    def allow(self, key: str) -> bool:
+        """Registra uma requisição; retorna False se o limite foi excedido.
+
+        Em caso de falha de conexão com o Redis, permite a requisição (fail-open)
+        para não derrubar a API — apenas registra o problema.
+        """
+        now = time.time()
+        rkey = f"rate_limit:{self.key_prefix}:{key}"
+        min_score = now - self.window
+
+        # Check-then-act não é atômico: em concorrência extrema pode haver um
+        # leve estouro do limite — aceitável para rate limiting.
+        try:
+            with self.redis.pipeline() as pipe:
+                pipe.zremrangebyscore(rkey, "-inf", min_score)
+                pipe.zcard(rkey)
+                count = pipe.execute()[1]
+
+            if count >= self.limit:
+                return False
+
+            member = f"{now}:{secrets.token_hex(6)}"
+            self.redis.zadd(rkey, {member: now})
+            self.redis.expire(rkey, int(self.window * 2) + 1)
+        except Exception as e:  # noqa: BLE001
+            logger.warning(f"Falha no rate limiter Redis ({e}); permitindo requisição")
+        return True
+
+
+def _limiter_dependency(limiter) -> Callable[[Request], None]:
     """Cria uma dependência FastAPI que limita requisições por IP."""
-    limiter = SlidingWindowRateLimiter(limit, window_seconds)
 
     def dependency(request: Request) -> None:
         ip = request.client.host if request.client else "unknown"
@@ -81,5 +125,28 @@ def rate_limit(limit: int, window_seconds: float) -> Callable[[Request], None]:
     return dependency
 
 
-# Limite padrão dos endpoints de scraping (configurável via variáveis de ambiente)
-scrape_rate_limiter = rate_limit(settings.SCRAPE_RATE_LIMIT, settings.SCRAPE_RATE_WINDOW)
+def build_scrape_rate_limiter() -> Callable[[Request], None]:
+    """Cria a dependência de rate limit para os endpoints de scraping.
+
+    Usa Redis (distribuído) quando ``REDIS_URL`` está configurada; caso contrário,
+    usa um limitador em memória (por processo).
+    """
+    limit = settings.SCRAPE_RATE_LIMIT
+    window = settings.SCRAPE_RATE_WINDOW
+
+    if settings.REDIS_URL:
+        try:
+            import redis as redis_lib
+        except ImportError:
+            logger.warning("Pacote 'redis' não instalado; usando rate limiter em memória")
+            return _limiter_dependency(SlidingWindowRateLimiter(limit, window))
+
+        client = redis_lib.from_url(settings.REDIS_URL, decode_responses=True)
+        logger.info("Rate limiter Redis ativo")
+        return _limiter_dependency(RedisSlidingWindowRateLimiter(client, limit, window))
+
+    return _limiter_dependency(SlidingWindowRateLimiter(limit, window))
+
+
+# Rate limiter padrão dos endpoints de scraping (configurável via variáveis de ambiente)
+scrape_rate_limiter = build_scrape_rate_limiter()

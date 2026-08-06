@@ -54,6 +54,13 @@ jobs:
       if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
       run: poetry install --no-interaction --no-root
 
+    - name: Run migrations (Alembic)
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/fbref_scraper
+      run: |
+        cd fbref-scraper
+        poetry run alembic upgrade head
+
     - name: Run tests
       env:
         DATABASE_URL: postgresql://postgres:postgres@localhost:5432/fbref_scraper

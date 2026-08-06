@@ -149,6 +149,10 @@ uvicorn app.main:app --reload
 
 ```
 fbref-scraper/
+├── alembic/                 # Migrações de banco de dados (Alembic)
+│   ├── env.py
+│   └── versions/
+├── alembic.ini              # Configuração do Alembic
 ├── app/
 │   ├── main.py              # Ponto de entrada da API
 │   ├── config.py            # Configurações da aplicação
@@ -170,6 +174,7 @@ fbref-scraper/
 │   │   └── cloudbet.py      # Serviço de integração com API Cloudbet
 │   ├── scrapers/            # Scrapers do FBref
 │   │   ├── leagues.py       # Mapeamento de ligas para códigos FBref
+│   │   ├── cache.py         # Cache em disco das respostas HTML
 │   │   ├── teams.py
 │   │   ├── players.py
 │   │   ├── matches.py
@@ -216,6 +221,10 @@ As configurações podem ser definidas via variáveis de ambiente ou arquivo `.e
 | `API_KEY` | Chave de API para endpoints de scraping (vazio = sem autenticação) | vazio |
 | `SCRAPE_RATE_LIMIT` | Máx. requisições de scraping por IP por janela | `30` |
 | `SCRAPE_RATE_WINDOW` | Janela do rate limit (s) | `60` |
+| `REDIS_URL` | URL do Redis para rate limit distribuído (vazio = em memória) | vazio |
+| `CACHE_ENABLED` | Habilita o cache em disco dos scrapers | `true` |
+| `CACHE_TTL_SECONDS` | TTL do cache em disco dos scrapers (s) | `3600` |
+| `CACHE_DIR` | Diretório do cache em disco (vazio = temp do sistema) | vazio |
 
 ## 🔒 Segurança dos Endpoints de Scraping
 
@@ -224,7 +233,21 @@ Os endpoints de scraping (`/teams/scrape`, `/players/scrape`, `/matches/scrape` 
 - **Autenticação opcional via API key** — se a variável `API_KEY` estiver configurada, envie o header `X-API-Key: <sua-chave>`; sem a chave, a API responde `401`.
 - **Rate limiting por IP** — limite de `SCRAPE_RATE_LIMIT` requisições por janela de `SCRAPE_RATE_WINDOW` segundos (padrão: 30/min). Acima do limite, responde `429`.
 
-> O rate limit é **em memória** (por processo). Para múltiplos workers/instâncias, considere um backend distribuído (ex: Redis).
+> Por padrão o rate limit é **em memória** (por processo). Configure `REDIS_URL` (ou use o `docker-compose`, que já sobe o Redis) para um rate limit **distribuído** entre workers. Se o Redis falhar, as requisições são permitidas (fail-open).
+
+## 🗄️ Migrações de Banco de Dados (Alembic)
+
+O schema é versionado com [Alembic](https://alembic.sqlalchemy.org/):
+
+```bash
+# Aplicar migrações (cria as tabelas)
+poetry run alembic upgrade head
+
+# Gerar uma nova migração a partir dos modelos
+poetry run alembic revision --autogenerate -m "descrição da mudança"
+```
+
+> Em bancos novos, execute `alembic upgrade head` antes de iniciar a API. A inicialização ainda executa `create_all` como rede de segurança (não altera tabelas existentes).
 
 ```bash
 curl -X POST "http://localhost:8000/api/v1/teams/scrape?league=Serie-A&season=2024-2025" \

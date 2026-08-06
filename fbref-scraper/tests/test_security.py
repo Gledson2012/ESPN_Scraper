@@ -5,7 +5,11 @@ import time
 import pytest
 from fastapi import HTTPException
 
-from app.api.security import require_api_key, SlidingWindowRateLimiter
+from app.api.security import (
+    require_api_key,
+    RedisSlidingWindowRateLimiter,
+    SlidingWindowRateLimiter,
+)
 from app.config import settings
 
 
@@ -59,6 +63,109 @@ def test_rate_limiter_window_expiry():
     assert limiter.allow("ip") is False
     time.sleep(0.06)
     assert limiter.allow("ip") is True
+
+
+# ===== Rate limiter Redis =====
+
+class FakeRedisPipeline:
+    """Pipeline fake com os comandos usados pelo limiter."""
+
+    def __init__(self, client):
+        self.client = client
+        self.queue = []
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return False
+
+    def zremrangebyscore(self, key, lo, hi):
+        self.queue.append(("zremrangebyscore", key, lo, hi))
+        return self
+
+    def zcard(self, key):
+        self.queue.append(("zcard", key))
+        return self
+
+    def execute(self):
+        results = []
+        for cmd in self.queue:
+            if cmd[0] == "zremrangebyscore":
+                self.client.zremrangebyscore(cmd[1], cmd[2], cmd[3])
+                results.append(0)
+            elif cmd[0] == "zcard":
+                results.append(self.client.zcard(cmd[1]))
+        return results
+
+
+class FakeRedis:
+    """Cliente Redis fake: sorted sets em memória."""
+
+    def __init__(self):
+        self.zsets = {}
+
+    def pipeline(self):
+        return FakeRedisPipeline(self)
+
+    def zremrangebyscore(self, key, lo, hi):
+        entries = self.zsets.setdefault(key, {})
+        for member, score in list(entries.items()):
+            if score <= hi and (lo == "-inf" or score >= lo):
+                del entries[member]
+
+    def zcard(self, key):
+        return len(self.zsets.get(key, {}))
+
+    def zadd(self, key, mapping):
+        self.zsets.setdefault(key, {}).update(mapping)
+
+    def expire(self, key, ttl):
+        pass  # TTL não afeta o teste
+
+
+def test_redis_rate_limiter_blocks_after_limit():
+    limiter = RedisSlidingWindowRateLimiter(FakeRedis(), limit=2, window_seconds=60)
+    assert limiter.allow("ip") is True
+    assert limiter.allow("ip") is True
+    assert limiter.allow("ip") is False
+
+
+def test_redis_rate_limiter_is_per_key():
+    limiter = RedisSlidingWindowRateLimiter(FakeRedis(), limit=1, window_seconds=60)
+    assert limiter.allow("ip-a") is True
+    assert limiter.allow("ip-a") is False
+    assert limiter.allow("ip-b") is True
+
+
+def test_redis_rate_limiter_fail_open_when_redis_down():
+    """Se o Redis falhar, a requisição é permitida (fail-open)."""
+    class FailingRedis:
+        def pipeline(self):
+            raise ConnectionError("redis indisponível")
+
+    limiter = RedisSlidingWindowRateLimiter(FailingRedis(), limit=1, window_seconds=60)
+    assert limiter.allow("ip") is True
+
+
+def test_build_scrape_rate_limiter_memory_without_redis(monkeypatch):
+    """Sem REDIS_URL, usa o limitador em memória."""
+    import app.api.security as security
+
+    monkeypatch.setattr(settings, "REDIS_URL", "")
+    monkeypatch.setattr(security, "_limiter_dependency", lambda limiter: limiter)
+    limiter = security.build_scrape_rate_limiter()
+    assert isinstance(limiter, security.SlidingWindowRateLimiter)
+
+
+def test_build_scrape_rate_limiter_redis_when_configured(monkeypatch):
+    """Com REDIS_URL configurada, usa o limitador Redis (sem conectar)."""
+    import app.api.security as security
+
+    monkeypatch.setattr(settings, "REDIS_URL", "redis://localhost:6379/0")
+    monkeypatch.setattr(security, "_limiter_dependency", lambda limiter: limiter)
+    limiter = security.build_scrape_rate_limiter()
+    assert isinstance(limiter, security.RedisSlidingWindowRateLimiter)
 
 
 # ===== Integração via HTTP =====

@@ -1,4 +1,3 @@
-import time
 import logging
 from typing import List, Optional
 from datetime import datetime
@@ -7,6 +6,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from app.config import settings
+from app.scrapers.cache import get_soup
 from app.scrapers.leagues import resolve_league_code
 
 logger = logging.getLogger(__name__)
@@ -26,11 +26,8 @@ class MatchesScraper:
         return resolve_league_code(league)
 
     def _get_soup(self, url: str) -> BeautifulSoup:
-        """Faz a requisição e retorna o BeautifulSoup da página."""
-        response = self.session.get(url, timeout=settings.REQUEST_TIMEOUT)
-        response.raise_for_status()
-        time.sleep(settings.REQUEST_DELAY)
-        return BeautifulSoup(response.text, "lxml")
+        """Busca a URL (com cache em disco) e retorna o BeautifulSoup da página."""
+        return get_soup(self.session, url)
 
     def get_league_matches(self, league: str, season: str) -> List[dict]:
         """

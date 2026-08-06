@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     # Cache
     CACHE_ENABLED: bool = True
     CACHE_TTL_SECONDS: int = 3600
+    CACHE_DIR: str = ""  # Diretório do cache em disco (vazio = temp do sistema)
 
     # Cloudbet API
     CLOUDBET_API_KEY: str = ""
@@ -41,6 +42,7 @@ class Settings(BaseSettings):
     API_KEY: str = ""  # Se vazio, os endpoints de scraping ficam abertos (sem auth)
     SCRAPE_RATE_LIMIT: int = 30  # Máximo de requisições de scraping por IP por janela
     SCRAPE_RATE_WINDOW: int = 60  # Janela do rate limit (em segundos)
+    REDIS_URL: str = ""  # Se vazio, o rate limit é em memória (por processo)
 
 
 settings = Settings()
