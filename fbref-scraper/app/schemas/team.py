@@ -20,9 +20,28 @@ class TeamBase(BaseModel):
 class TeamCreate(TeamBase):
     """Dados para criar um novo time."""
 
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "name": "Flamengo",
+                    "short_name": "FLA",
+                    "country": "Brasil",
+                    "league": "Serie-A",
+                    "founded": 1895,
+                    "fbref_id": "flamengo",
+                }
+            ]
+        }
+    )
+
 
 class TeamUpdate(BaseModel):
     """Dados para atualizar um time existente."""
+
+    model_config = ConfigDict(
+        json_schema_extra={"examples": [{"stadium": "Maracanã", "website": "https://www.flamengo.com.br"}]}
+    )
 
     name: Optional[str] = Field(None, min_length=1, max_length=255, description="Nome completo do time", examples=["Flamengo"])
     short_name: Optional[str] = Field(None, description="Nome abreviado", examples=["FLA"])
@@ -43,3 +62,20 @@ class TeamResponse(TeamBase):
     id: int = Field(..., description="ID único do time")
     created_at: datetime = Field(..., description="Data de criação do registro")
     updated_at: datetime = Field(..., description="Data da última atualização")
+
+
+class TeamSummaryResponse(BaseModel):
+    """Resumo de desempenho de um time em partidas com placar conhecido."""
+
+    team_id: int = Field(..., gt=0, description="ID do time", examples=[1])
+    team_name: str = Field(..., description="Nome do time", examples=["Flamengo"])
+    matches: int = Field(..., ge=0, description="Partidas cadastradas", examples=[38])
+    completed_matches: int = Field(..., ge=0, description="Partidas com placar conhecido", examples=[38])
+    wins: int = Field(..., ge=0, description="Vitórias", examples=[25])
+    draws: int = Field(..., ge=0, description="Empates", examples=[8])
+    losses: int = Field(..., ge=0, description="Derrotas", examples=[5])
+    goals_for: int = Field(..., ge=0, description="Gols marcados", examples=[72])
+    goals_against: int = Field(..., ge=0, description="Gols sofridos", examples=[35])
+    goal_difference: int = Field(..., description="Saldo de gols", examples=[37])
+    points: int = Field(..., ge=0, description="Pontos (3 por vitória, 1 por empate)", examples=[83])
+    stats_available: int = Field(..., ge=0, description="Partidas com estatísticas coletadas", examples=[32])

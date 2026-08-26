@@ -5,7 +5,7 @@ from typing import Optional, List
 from app.services.cloudbet import CloudbetService
 from app.schemas.odds import EventOdds, MatchOddsResponse, SoccerOddsResponse
 
-router = APIRouter(prefix="/odds", tags=["odds"])
+router = APIRouter(prefix="/odds", tags=["Odds"])
 cloudbet_service = CloudbetService()
 logger = logging.getLogger(__name__)
 

@@ -14,7 +14,7 @@ from app.services.fbref import FBrefService
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/players", tags=["players"])
+router = APIRouter(prefix="/players", tags=["Jogadores"])
 
 
 @router.get(

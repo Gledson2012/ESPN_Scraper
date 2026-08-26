@@ -145,6 +145,9 @@ curl -X POST "http://localhost:8000/api/v1/predictions/" \
 |--------|----------|-----------|
 | `GET` | `/teams/` | Lista times (com filtros) |
 | `GET` | `/teams/{id}` | Obtém um time pelo ID |
+| `GET` | `/teams/{id}/players` | Lista jogadores do time |
+| `GET` | `/teams/{id}/matches` | Lista partidas do time |
+| `GET` | `/teams/{id}/summary` | Resumo de desempenho do time |
 | `POST` | `/teams/` | Cria um time |
 | `PUT` | `/teams/{id}` | Atualiza um time |
 | `DELETE` | `/teams/{id}` | Deleta um time |
@@ -172,6 +175,17 @@ curl -X POST "http://localhost:8000/api/v1/predictions/" \
 | `DELETE` | `/matches/{id}` | Deleta uma partida |
 | `POST` | `/matches/scrape` | Scraping de partidas do FBref |
 | `POST` | `/matches/{id}/scrape-stats` | Scraping de estatísticas da partida |
+| `GET` | `/matches/{id}/stats` | Lista estatísticas da partida |
+
+### 📈 Estatísticas (`/api/v1/stats`)
+
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| `GET` | `/stats/` | Lista estatísticas com filtros por partida/time |
+| `GET` | `/stats/{id}` | Obtém estatísticas pelo ID |
+| `POST` | `/stats/` | Cria estatísticas para um time da partida |
+| `PUT` | `/stats/{id}` | Atualiza estatísticas |
+| `DELETE` | `/stats/{id}` | Exclui estatísticas |
 
 ### 📊 Previsões (`/api/v1/predictions`)
 

@@ -56,6 +56,9 @@ uvicorn app.main:app --reload
 |--------|----------|-----------|
 | GET | `/api/v1/teams/` | Lista times (com filtros) |
 | GET | `/api/v1/teams/{id}` | Obtém um time |
+| GET | `/api/v1/teams/{id}/players` | Lista jogadores do time |
+| GET | `/api/v1/teams/{id}/matches` | Lista partidas do time |
+| GET | `/api/v1/teams/{id}/summary` | Resumo de desempenho do time |
 | POST | `/api/v1/teams/` | Cria um time |
 | PUT | `/api/v1/teams/{id}` | Atualiza um time |
 | DELETE | `/api/v1/teams/{id}` | Deleta um time |
@@ -83,6 +86,17 @@ uvicorn app.main:app --reload
 | DELETE | `/api/v1/matches/{id}` | Deleta uma partida |
 | POST | `/api/v1/matches/scrape?league=Serie-A&season=2024-2025` | Scraping de partidas |
 | POST | `/api/v1/matches/{id}/scrape-stats` | Scraping de estatísticas |
+| GET | `/api/v1/matches/{id}/stats` | Lista estatísticas da partida |
+
+### Estatísticas (`/api/v1/stats`)
+
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| GET | `/api/v1/stats/` | Lista estatísticas com filtros por partida/time |
+| GET | `/api/v1/stats/{id}` | Obtém estatísticas pelo ID |
+| POST | `/api/v1/stats/` | Cria estatísticas para um time da partida |
+| PUT | `/api/v1/stats/{id}` | Atualiza estatísticas |
+| DELETE | `/api/v1/stats/{id}` | Exclui estatísticas |
 
 ### Odds Cloudbet (`/api/v1/odds`)
 

@@ -1,10 +1,23 @@
 from typing import Optional
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class PredictionRequest(BaseModel):
     """Dados para gerar uma previsão de partida."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "home_team_id": 1,
+                    "away_team_id": 2,
+                    "competition": "Serie-A",
+                    "season": "2024-2025",
+                }
+            ]
+        }
+    )
 
     home_team_id: int = Field(..., gt=0, description="ID do time da casa", examples=[1])
     away_team_id: int = Field(..., gt=0, description="ID do time visitante", examples=[2])

@@ -22,9 +22,27 @@ class PlayerBase(BaseModel):
 class PlayerCreate(PlayerBase):
     """Dados para criar um novo jogador."""
 
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "name": "Gabriel Barbosa",
+                    "full_name": "Gabriel Barbosa Almeida",
+                    "nationality": "Brasil",
+                    "position": "FW",
+                    "shirt_number": 9,
+                    "team_id": 1,
+                    "fbref_id": "gabriel-barbosa",
+                }
+            ]
+        }
+    )
+
 
 class PlayerUpdate(BaseModel):
     """Dados para atualizar um jogador existente."""
+
+    model_config = ConfigDict(json_schema_extra={"examples": [{"shirt_number": 10, "position": "FW"}]})
 
     name: Optional[str] = Field(None, min_length=1, max_length=255, description="Nome do jogador", examples=["Vinícius Júnior"])
     full_name: Optional[str] = Field(None, description="Nome completo do jogador", examples=["Vinícius José Paixão de Oliveira Júnior"])

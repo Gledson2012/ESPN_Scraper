@@ -8,7 +8,7 @@ from app.database import get_db
 from app.models import Match, MatchStats, Team
 from app.schemas import PredictionRequest, PredictionResponse
 
-router = APIRouter(prefix="/predictions", tags=["predictions"])
+router = APIRouter(prefix="/predictions", tags=["Previsões"])
 
 MODEL_VERSION = "1.1.0"
 

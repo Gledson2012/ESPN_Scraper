@@ -32,9 +32,27 @@ class MatchBase(BaseModel):
 class MatchCreate(MatchBase):
     """Dados para criar uma nova partida."""
 
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "home_team_id": 1,
+                    "away_team_id": 2,
+                    "competition": "Serie-A",
+                    "season": "2024-2025",
+                    "home_score": 2,
+                    "away_score": 1,
+                    "fbref_id": "match-123",
+                }
+            ]
+        }
+    )
+
 
 class MatchUpdate(BaseModel):
     """Dados para atualizar uma partida existente."""
+
+    model_config = ConfigDict(json_schema_extra={"examples": [{"home_score": 3, "away_score": 1}]})
 
     home_team_id: Optional[int] = Field(None, gt=0, description="ID do time da casa", examples=[1])
     away_team_id: Optional[int] = Field(None, gt=0, description="ID do time visitante", examples=[2])

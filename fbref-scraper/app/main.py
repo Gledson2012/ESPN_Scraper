@@ -7,7 +7,7 @@ from sqlalchemy import text
 
 from app.config import settings
 from app.database import Base, engine
-from app.api import teams_router, players_router, matches_router, predictions_router, odds_router
+from app.api import teams_router, players_router, matches_router, predictions_router, odds_router, stats_router
 
 # Configurar logging
 logging.basicConfig(
@@ -43,7 +43,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title=settings.PROJECT_NAME,
+    title="⚽ FBref Scraper API",
+    summary="Dados de futebol, previsões e odds em uma API REST",
     version=settings.VERSION,
     debug=settings.DEBUG,
     description="""
@@ -60,6 +61,7 @@ API para **scraping de dados de futebol** do [FBref](https://fbref.com), geraç�
 | 🏟️ **Times** | Scraping e CRUD de times de ligas específicas |
 | 👤 **Jogadores** | Scraping e CRUD de jogadores de times |
 | ⚽ **Partidas** | Scraping e CRUD de partidas com estatísticas |
+| 📈 **Estatísticas** | Consulta e manutenção de estatísticas por partida e time |
 | 📊 **Previsões** | Modelo Poisson para prever resultados de partidas |
 | 🎲 **Odds** | Integração com a API da Cloudbet para odds de apostas |
 
@@ -107,26 +109,42 @@ Este projeto é para fins educacionais. Respeite os termos de serviço do FBref 
     },
     openapi_tags=[
         {
-            "name": "teams",
-            "description": "🏟️ **Times** - Operações de scraping e CRUD de times de futebol",
+            "name": "Informações",
+            "description": "Status da API e informações de configuração.",
         },
         {
-            "name": "players",
-            "description": "👤 **Jogadores** - Operações de scraping e CRUD de jogadores",
+            "name": "Times",
+            "description": "🏟️ Cadastro, filtros, scraping e detalhes de times.",
         },
         {
-            "name": "matches",
-            "description": "⚽ **Partidas** - Operações de scraping e CRUD de partidas com estatísticas",
+            "name": "Jogadores",
+            "description": "👤 Cadastro, filtros e scraping de jogadores.",
         },
         {
-            "name": "predictions",
-            "description": "📊 **Previsões** - Modelo Poisson para prever resultados de partidas",
+            "name": "Partidas",
+            "description": "⚽ Cadastro, filtros, scraping e estatísticas de partidas.",
         },
         {
-            "name": "odds",
-            "description": "🎲 **Odds Cloudbet** - Integração com a API da Cloudbet para odds de apostas",
+            "name": "Previsões",
+            "description": "📊 Previsões de resultados com modelo Poisson baseado em xG.",
+        },
+        {
+            "name": "Estatísticas",
+            "description": "📈 Consulta e manutenção das estatísticas por time e partida.",
+        },
+        {
+            "name": "Odds",
+            "description": "🎲 Consulta de eventos e mercados de odds da Cloudbet.",
         },
     ],
+    swagger_ui_parameters={
+        "defaultModelsExpandDepth": 1,
+        "docExpansion": "list",
+        "filter": True,
+        "displayRequestDuration": True,
+        "persistAuthorization": True,
+        "tryItOutEnabled": True,
+    },
 )
 
 cors_origins = [
@@ -149,10 +167,11 @@ app.include_router(teams_router, prefix=settings.API_V1_PREFIX)
 app.include_router(players_router, prefix=settings.API_V1_PREFIX)
 app.include_router(matches_router, prefix=settings.API_V1_PREFIX)
 app.include_router(predictions_router, prefix=settings.API_V1_PREFIX)
+app.include_router(stats_router, prefix=settings.API_V1_PREFIX)
 app.include_router(odds_router, prefix=settings.API_V1_PREFIX)
 
 
-@app.get("/", summary="Informações da API", tags=["info"])
+@app.get("/", summary="Informações da API", tags=["Informações"])
 def root():
     """Endpoint raiz com informações básicas da API."""
     return {
@@ -163,7 +182,7 @@ def root():
     }
 
 
-@app.get("/health", summary="Health Check", tags=["info"])
+@app.get("/health", summary="Health Check", tags=["Informações"])
 def health_check():
     """Verifica se a API está saudável."""
     return {"status": "ok"}

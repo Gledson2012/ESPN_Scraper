@@ -9,13 +9,13 @@ from sqlalchemy.orm import Session
 
 from app.api.security import require_api_key, scrape_rate_limiter
 from app.database import get_db
-from app.models import Match, Team
-from app.schemas import MatchCreate, MatchUpdate, MatchResponse
+from app.models import Match, MatchStats, Team
+from app.schemas import MatchCreate, MatchStatsResponse, MatchUpdate, MatchResponse
 from app.services.fbref import FBrefService
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/matches", tags=["matches"])
+router = APIRouter(prefix="/matches", tags=["Partidas"])
 
 
 @router.get(
@@ -74,6 +74,21 @@ def get_match(match_id: int, db: Session = Depends(get_db)):
     if not match:
         raise HTTPException(status_code=404, detail="Partida não encontrada")
     return match
+
+
+@router.get(
+    "/{match_id}/stats",
+    response_model=List[MatchStatsResponse],
+    summary="Obter estatísticas da partida",
+    description="Retorna as estatísticas dos dois times associadas à partida.",
+)
+def get_match_stats(match_id: int, db: Session = Depends(get_db)):
+    """Lista estatísticas de uma partida, mandante primeiro."""
+    if not db.query(Match.id).filter(Match.id == match_id).first():
+        raise HTTPException(status_code=404, detail="Partida não encontrada")
+    return db.query(MatchStats).filter(
+        MatchStats.match_id == match_id
+    ).order_by(MatchStats.is_home.desc()).all()
 
 
 @router.post(

@@ -16,14 +16,21 @@ import time
 from collections import defaultdict, deque
 from typing import Callable, Deque, Dict
 
-from fastapi import Header, HTTPException, Request
+from fastapi import HTTPException, Request, Security
+from fastapi.security import APIKeyHeader
 
 from app.config import settings
 
 logger = logging.getLogger(__name__)
+api_key_header = APIKeyHeader(
+    name="X-API-Key",
+    scheme_name="ApiKeyAuth",
+    description="Chave configurada em `API_KEY` para acessar endpoints de scraping.",
+    auto_error=False,
+)
 
 
-def require_api_key(x_api_key: str = Header(default="")) -> None:
+def require_api_key(x_api_key: str | None = Security(api_key_header)) -> None:
     """Exige a chave de API, exceto quando o bypass foi explicitamente ativado."""
     if not settings.API_KEY:
         if settings.ALLOW_UNAUTHENTICATED_SCRAPING:
@@ -33,7 +40,7 @@ def require_api_key(x_api_key: str = Header(default="")) -> None:
             detail="Scraping desabilitado: configure a variável API_KEY.",
         )
 
-    if not secrets.compare_digest(x_api_key, settings.API_KEY):
+    if not x_api_key or not secrets.compare_digest(x_api_key, settings.API_KEY):
         raise HTTPException(
             status_code=401,
             detail="API key inválida ou ausente. Envie o header 'X-API-Key'.",

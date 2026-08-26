@@ -8,13 +8,13 @@ from sqlalchemy.orm import Session
 
 from app.api.security import require_api_key, scrape_rate_limiter
 from app.database import get_db
-from app.models import Match, Player, Team
-from app.schemas import TeamCreate, TeamUpdate, TeamResponse
+from app.models import Match, MatchStats, Player, Team
+from app.schemas import MatchResponse, PlayerResponse, TeamCreate, TeamSummaryResponse, TeamUpdate, TeamResponse
 from app.services.fbref import FBrefService
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/teams", tags=["teams"])
+router = APIRouter(prefix="/teams", tags=["Times"])
 
 
 @router.get(
@@ -60,6 +60,113 @@ def get_team(team_id: int, db: Session = Depends(get_db)):
     if not team:
         raise HTTPException(status_code=404, detail="Time não encontrado")
     return team
+
+
+@router.get(
+    "/{team_id}/players",
+    response_model=List[PlayerResponse],
+    summary="Listar jogadores do time",
+    description="Retorna os jogadores atualmente vinculados a um time.",
+)
+def list_team_players(
+    team_id: int,
+    position: Optional[str] = Query(None, description="Filtrar por posição", examples=["FW"]),
+    skip: int = Query(0, ge=0, description="Quantidade de registros para pular"),
+    limit: int = Query(100, ge=1, le=1000, description="Quantidade máxima de registros"),
+    db: Session = Depends(get_db),
+):
+    """Lista jogadores vinculados a um time."""
+    if not db.query(Team.id).filter(Team.id == team_id).first():
+        raise HTTPException(status_code=404, detail="Time não encontrado")
+
+    query = db.query(Player).filter(Player.team_id == team_id)
+    if position:
+        query = query.filter(Player.position == position)
+    return query.order_by(Player.name).offset(skip).limit(limit).all()
+
+
+@router.get(
+    "/{team_id}/matches",
+    response_model=List[MatchResponse],
+    summary="Listar partidas do time",
+    description="Retorna partidas em que o time participou, como mandante ou visitante.",
+)
+def list_team_matches(
+    team_id: int,
+    competition: Optional[str] = Query(None, description="Filtrar por competição", examples=["Serie-A"]),
+    season: Optional[str] = Query(None, description="Filtrar por temporada", examples=["2024-2025"]),
+    skip: int = Query(0, ge=0, description="Quantidade de registros para pular"),
+    limit: int = Query(100, ge=1, le=1000, description="Quantidade máxima de registros"),
+    db: Session = Depends(get_db),
+):
+    """Lista partidas de um time com filtros opcionais."""
+    if not db.query(Team.id).filter(Team.id == team_id).first():
+        raise HTTPException(status_code=404, detail="Time não encontrado")
+
+    query = db.query(Match).filter(
+        (Match.home_team_id == team_id) | (Match.away_team_id == team_id)
+    )
+    if competition:
+        query = query.filter(Match.competition == competition)
+    if season:
+        query = query.filter(Match.season == season)
+    return query.order_by(Match.match_date.desc()).offset(skip).limit(limit).all()
+
+
+@router.get(
+    "/{team_id}/summary",
+    response_model=TeamSummaryResponse,
+    summary="Resumo de desempenho do time",
+    description="Calcula campanha, gols, pontos e disponibilidade de estatísticas do time.",
+)
+def get_team_summary(team_id: int, db: Session = Depends(get_db)):
+    """Retorna um resumo de desempenho baseado nos placares cadastrados."""
+    team = db.query(Team).filter(Team.id == team_id).first()
+    if not team:
+        raise HTTPException(status_code=404, detail="Time não encontrado")
+
+    matches = db.query(Match).filter(
+        (Match.home_team_id == team_id) | (Match.away_team_id == team_id)
+    ).all()
+    completed = [
+        match for match in matches
+        if match.home_score is not None and match.away_score is not None
+    ]
+
+    wins = draws = losses = goals_for = goals_against = points = 0
+    for match in completed:
+        is_home = match.home_team_id == team_id
+        team_goals = match.home_score if is_home else match.away_score
+        opponent_goals = match.away_score if is_home else match.home_score
+        goals_for += team_goals
+        goals_against += opponent_goals
+        if team_goals > opponent_goals:
+            wins += 1
+            points += 3
+        elif team_goals == opponent_goals:
+            draws += 1
+            points += 1
+        else:
+            losses += 1
+
+    stats_available = db.query(MatchStats.match_id).filter(
+        MatchStats.team_id == team_id
+    ).distinct().count()
+
+    return TeamSummaryResponse(
+        team_id=team.id,
+        team_name=team.name,
+        matches=len(matches),
+        completed_matches=len(completed),
+        wins=wins,
+        draws=draws,
+        losses=losses,
+        goals_for=goals_for,
+        goals_against=goals_against,
+        goal_difference=goals_for - goals_against,
+        points=points,
+        stats_available=stats_available,
+    )
 
 
 @router.post(
