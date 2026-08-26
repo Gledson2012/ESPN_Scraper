@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, HTTPException, Query
 from typing import Optional, List
 from app.services.cloudbet import CloudbetService
@@ -5,6 +7,12 @@ from app.schemas.odds import EventOdds, MatchOddsResponse, SoccerOddsResponse
 
 router = APIRouter(prefix="/odds", tags=["odds"])
 cloudbet_service = CloudbetService()
+logger = logging.getLogger(__name__)
+
+
+def _cloudbet_error(operation: str) -> HTTPException:
+    logger.exception("Erro ao %s na Cloudbet", operation)
+    return HTTPException(status_code=502, detail="Não foi possível consultar a Cloudbet")
 
 
 @router.get(
@@ -16,8 +24,8 @@ async def get_sports():
     """Obtém a lista de esportes disponíveis na Cloudbet."""
     try:
         return await cloudbet_service.get_sports()
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro ao buscar esportes: {str(e)}")
+    except Exception:
+        raise _cloudbet_error("buscar esportes")
 
 
 @router.get(
@@ -29,8 +37,8 @@ async def get_competitions(sport_key: str = Query("soccer", description="Chave d
     """Obtém competições de futebol disponíveis."""
     try:
         return await cloudbet_service.get_competitions(sport_key)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro ao buscar competições: {str(e)}")
+    except Exception:
+        raise _cloudbet_error("buscar competições")
 
 
 @router.get(
@@ -48,8 +56,8 @@ async def get_competition_events(
         return {"events": events, "total": len(events)}
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro ao buscar eventos da competição: {str(e)}")
+    except Exception:
+        raise _cloudbet_error("buscar eventos da competição")
 
 
 @router.get(
@@ -64,7 +72,12 @@ async def get_competition_events(
     """,
 )
 async def get_soccer_odds(
-    competition_key: Optional[str] = Query(None, description="Filtrar por competição", examples=["br-serie-a"])
+    competition_key: Optional[str] = Query(
+        None,
+        min_length=1,
+        description="Filtrar por competição",
+        examples=["br-serie-a"],
+    )
 ):
     """Obtém odds de partidas de futebol da Cloudbet."""
     try:
@@ -83,8 +96,8 @@ async def get_soccer_odds(
             )
             events.append(event)
         return SoccerOddsResponse(events=events, total=len(events))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro ao buscar odds de futebol: {str(e)}")
+    except Exception:
+        raise _cloudbet_error("buscar odds de futebol")
 
 
 @router.get(
@@ -94,8 +107,8 @@ async def get_soccer_odds(
     description="Busca odds para uma partida específica entre dois times.",
 )
 async def get_match_odds(
-    home_team: str = Query(..., description="Time da casa", examples=["Flamengo"]),
-    away_team: str = Query(..., description="Time visitante", examples=["Palmeiras"]),
+    home_team: str = Query(..., min_length=1, description="Time da casa", examples=["Flamengo"]),
+    away_team: str = Query(..., min_length=1, description="Time visitante", examples=["Palmeiras"]),
 ):
     """Busca odds para uma partida específica entre dois times."""
     try:
@@ -115,8 +128,8 @@ async def get_match_odds(
         )
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro ao buscar odds da partida: {str(e)}")
+    except Exception:
+        raise _cloudbet_error("buscar odds da partida")
 
 
 @router.get(
@@ -128,8 +141,8 @@ async def get_event_odds(event_id: str):
     """Obtém odds de um evento específico pelo ID."""
     try:
         return await cloudbet_service.get_event_odds(event_id)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro ao buscar odds do evento: {str(e)}")
+    except Exception:
+        raise _cloudbet_error("buscar odds do evento")
 
 
 @router.get(
@@ -141,5 +154,5 @@ async def get_event_markets(event_id: str):
     """Obtém mercados de apostas de um evento específico."""
     try:
         return await cloudbet_service.get_event_markets(event_id)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro ao buscar mercados do evento: {str(e)}")
+    except Exception:
+        raise _cloudbet_error("buscar mercados do evento")

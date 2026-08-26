@@ -16,6 +16,9 @@ API para scraping de dados de futebol do [FBref](https://fbref.com), geração d
 ### Com Docker (recomendado)
 
 ```bash
+# Configure uma chave para habilitar os endpoints de scraping
+export API_KEY="uma-chave-forte"
+
 # Subir os serviços (API + PostgreSQL)
 docker-compose up -d
 
@@ -36,6 +39,10 @@ pip install -r requirements.txt
 
 # Configurar banco de dados PostgreSQL
 # Crie um banco chamado 'fbref_scraper' e ajuste a URL em app/config.py ou via variável de ambiente
+export API_KEY="uma-chave-forte"
+
+# Aplicar o schema versionado
+alembic upgrade head
 
 # Iniciar a API
 uvicorn app.main:app --reload
@@ -199,7 +206,8 @@ fbref-scraper/
 # Executar todos os testes
 pytest
 
-# Executar testes com cobertura
+# Executar testes com cobertura (instale pytest-cov se necessário)
+pip install pytest-cov
 pytest --cov=app --cov-report=html
 ```
 
@@ -212,13 +220,16 @@ As configurações podem ser definidas via variáveis de ambiente ou arquivo `.e
 | `DATABASE_URL` | URL do banco de dados | `postgresql://postgres:postgres@localhost:5432/fbref_scraper` |
 | `API_V1_PREFIX` | Prefixo da API | `/api/v1` |
 | `PROJECT_NAME` | Nome do projeto | `FBref Scraper` |
-| `DEBUG` | Modo debug | `true` |
+| `DEBUG` | Modo debug | `false` |
+| `CORS_ORIGINS` | Origens permitidas separadas por vírgula | vazio |
+| `AUTO_CREATE_SCHEMA` | Cria tabelas sem Alembic (somente desenvolvimento) | `false` |
 | `REQUEST_TIMEOUT` | Timeout das requisições (s) | `30` |
 | `REQUEST_DELAY` | Delay entre requisições (s) | `1.0` |
 | `USER_AGENT` | User-Agent para scraping | Chrome UA |
 | `CLOUDBET_API_KEY` | Chave de API da Cloudbet | vazio |
 | `CLOUDBET_BASE_URL` | URL base da API Cloudbet | `https://sports-api.cloudbet.com/v2` |
-| `API_KEY` | Chave de API para endpoints de scraping (vazio = sem autenticação) | vazio |
+| `API_KEY` | Chave de API obrigatória para endpoints de scraping | vazio |
+| `ALLOW_UNAUTHENTICATED_SCRAPING` | Libera scraping sem chave (somente desenvolvimento) | `false` |
 | `SCRAPE_RATE_LIMIT` | Máx. requisições de scraping por IP por janela | `30` |
 | `SCRAPE_RATE_WINDOW` | Janela do rate limit (s) | `60` |
 | `REDIS_URL` | URL do Redis para rate limit distribuído (vazio = em memória) | vazio |
@@ -230,7 +241,8 @@ As configurações podem ser definidas via variáveis de ambiente ou arquivo `.e
 
 Os endpoints de scraping (`/teams/scrape`, `/players/scrape`, `/matches/scrape` e `/matches/{id}/scrape-stats`) possuem:
 
-- **Autenticação opcional via API key** — se a variável `API_KEY` estiver configurada, envie o header `X-API-Key: <sua-chave>`; sem a chave, a API responde `401`.
+- **Autenticação via API key** — configure `API_KEY` e envie o header `X-API-Key: <sua-chave>`; sem a configuração, os endpoints respondem `503`.
+- Para desenvolvimento local, o bypass precisa ser explícito com `ALLOW_UNAUTHENTICATED_SCRAPING=true`.
 - **Rate limiting por IP** — limite de `SCRAPE_RATE_LIMIT` requisições por janela de `SCRAPE_RATE_WINDOW` segundos (padrão: 30/min). Acima do limite, responde `429`.
 
 > Por padrão o rate limit é **em memória** (por processo). Configure `REDIS_URL` (ou use o `docker-compose`, que já sobe o Redis) para um rate limit **distribuído** entre workers. Se o Redis falhar, as requisições são permitidas (fail-open).

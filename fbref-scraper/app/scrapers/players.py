@@ -51,7 +51,8 @@ class PlayersScraper:
             if row.get("class") and "thead" in row.get("class", []):
                 continue
 
-            player_link = row.find("th", {"data-stat": "player"}).find("a")
+            player_cell = row.find("th", {"data-stat": "player"})
+            player_link = player_cell.find("a") if player_cell else None
             if not player_link:
                 continue
 

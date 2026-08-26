@@ -18,7 +18,10 @@ class Settings(BaseSettings):
     API_V1_PREFIX: str = "/api/v1"
     PROJECT_NAME: str = "FBref Scraper"
     VERSION: str = "1.1.0"
-    APP_DEBUG: bool = True
+    DEBUG: bool = False
+    # Lista separada por vírgulas. Vazia = sem credenciais e qualquer origem.
+    CORS_ORIGINS: str = ""
+    AUTO_CREATE_SCHEMA: bool = False
 
     # Scraping
     REQUEST_TIMEOUT: int = 30
@@ -39,7 +42,8 @@ class Settings(BaseSettings):
     CLOUDBET_BASE_URL: str = "https://sports-api.cloudbet.com/v2"
 
     # Segurança dos endpoints de scraping
-    API_KEY: str = ""  # Se vazio, os endpoints de scraping ficam abertos (sem auth)
+    API_KEY: str = ""  # Deve ser configurada para habilitar scraping
+    ALLOW_UNAUTHENTICATED_SCRAPING: bool = False  # Somente desenvolvimento/testes
     SCRAPE_RATE_LIMIT: int = 30  # Máximo de requisições de scraping por IP por janela
     SCRAPE_RATE_WINDOW: int = 60  # Janela do rate limit (em segundos)
     REDIS_URL: str = ""  # Se vazio, o rate limit é em memória (por processo)

@@ -14,7 +14,7 @@ import time
 from pathlib import Path
 from typing import Optional
 
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Comment
 
 from app.config import settings
 
@@ -69,15 +69,28 @@ def cache_set(url: str, content: str) -> None:
         logger.debug(f"Falha ao gravar cache para {url}")
 
 
+def _parse_soup(content: str) -> BeautifulSoup:
+    """Parseia HTML e também expõe tabelas que o FBref entrega em comentários."""
+    soup = BeautifulSoup(content, "lxml")
+    comments = soup.find_all(string=lambda value: isinstance(value, Comment))
+    for comment in comments:
+        if "<table" not in comment.lower():
+            continue
+        fragment = BeautifulSoup(str(comment), "lxml")
+        for table in fragment.find_all("table"):
+            soup.append(table)
+    return soup
+
+
 def get_soup(session, url: str) -> BeautifulSoup:
     """Busca a URL usando cache em disco e retorna o BeautifulSoup da página."""
     cached = cache_get(url)
     if cached is not None:
         logger.info(f"Cache hit: {url}")
-        return BeautifulSoup(cached, "lxml")
+        return _parse_soup(cached)
 
     response = session.get(url, timeout=settings.REQUEST_TIMEOUT)
     response.raise_for_status()
     time.sleep(settings.REQUEST_DELAY)
     cache_set(url, response.text)
-    return BeautifulSoup(response.text, "lxml")
+    return _parse_soup(response.text)

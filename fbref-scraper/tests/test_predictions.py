@@ -95,3 +95,16 @@ def test_predict_match_fallback_away_only_stats(client, sample_team_data, sample
     data = response.json()
     assert data["predicted_home_score"] >= 0
     assert data["predicted_away_score"] >= 0
+
+
+def test_predict_match_can_filter_history_by_competition(client, sample_stats_data):
+    team1, team2 = sample_stats_data
+    response = client.post(
+        "/api/v1/predictions/",
+        json={
+            "home_team_id": team1["id"],
+            "away_team_id": team2["id"],
+            "competition": "Outra-Liga",
+        },
+    )
+    assert response.status_code == 400

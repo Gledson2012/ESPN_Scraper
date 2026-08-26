@@ -1,7 +1,8 @@
 """Segurança dos endpoints de scraping: chave de API e rate limiting.
 
-- **Autenticação**: opcional — só é exigida quando ``API_KEY`` estiver configurada.
-  Nesse caso, os clientes devem enviar o header ``X-API-Key``.
+- **Autenticação**: exigida por padrão. O bypass só existe quando
+  ``ALLOW_UNAUTHENTICATED_SCRAPING`` estiver explicitamente ativado.
+  Com chave configurada, os clientes devem enviar o header ``X-API-Key``.
 - **Rate limiting**: janela deslizante. Por padrão é em memória (por processo);
   se ``REDIS_URL`` estiver configurada, usa Redis (distribuído entre workers).
   O orçamento é **global entre os endpoints de scraping** (soma de todas as
@@ -23,8 +24,16 @@ logger = logging.getLogger(__name__)
 
 
 def require_api_key(x_api_key: str = Header(default="")) -> None:
-    """Exige a chave de API quando ``API_KEY`` estiver configurada."""
-    if settings.API_KEY and x_api_key != settings.API_KEY:
+    """Exige a chave de API, exceto quando o bypass foi explicitamente ativado."""
+    if not settings.API_KEY:
+        if settings.ALLOW_UNAUTHENTICATED_SCRAPING:
+            return
+        raise HTTPException(
+            status_code=503,
+            detail="Scraping desabilitado: configure a variável API_KEY.",
+        )
+
+    if not secrets.compare_digest(x_api_key, settings.API_KEY):
         raise HTTPException(
             status_code=401,
             detail="API key inválida ou ausente. Envie o header 'X-API-Key'.",

@@ -80,15 +80,31 @@ class StatisticsScraper:
             "red_cards": "red_cards",
             "saves": "gk_saves",
             "xg": "xg",
+            "pass_accuracy": "passes_pct",
+            "interceptions": "interceptions",
+        }
+        integer_stats = {
+            "shots_on_target",
+            "shots",
+            "passes",
+            "tackles",
+            "corners",
+            "offsides",
+            "fouls",
+            "yellow_cards",
+            "red_cards",
+            "saves",
+            "interceptions",
         }
 
         for stat_key, data_stat in stat_mappings.items():
             home_cell = home_row.find("td", {"data-stat": data_stat})
             away_cell = away_row.find("td", {"data-stat": data_stat})
+            parser = self._safe_int if stat_key in integer_stats else self._safe_float
             if home_cell:
-                stats[f"home_{stat_key}"] = self._safe_float(home_cell.text)
+                stats[f"home_{stat_key}"] = parser(home_cell.text)
             if away_cell:
-                stats[f"away_{stat_key}"] = self._safe_float(away_cell.text)
+                stats[f"away_{stat_key}"] = parser(away_cell.text)
 
         return stats
 

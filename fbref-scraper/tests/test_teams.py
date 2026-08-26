@@ -60,3 +60,19 @@ def test_filter_teams_by_league(client, sample_team_data):
     assert response.status_code == 200
     data = response.json()
     assert all(team["league"] == "Serie-A" for team in data)
+
+
+def test_delete_team_with_associations_is_rejected(client, sample_team_data, sample_team2_data):
+    team = client.post("/api/v1/teams/", json=sample_team_data).json()
+    other = client.post("/api/v1/teams/", json=sample_team2_data).json()
+    client.post(
+        "/api/v1/matches/",
+        json={
+            "home_team_id": team["id"],
+            "away_team_id": other["id"],
+            "fbref_id": "protected-team-match",
+        },
+    )
+
+    response = client.delete(f"/api/v1/teams/{team['id']}")
+    assert response.status_code == 409

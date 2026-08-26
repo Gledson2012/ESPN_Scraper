@@ -3,11 +3,12 @@ from typing import List, Optional
 
 import requests
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.security import require_api_key, scrape_rate_limiter
 from app.database import get_db
-from app.models import Player
+from app.models import Player, Team
 from app.schemas import PlayerCreate, PlayerUpdate, PlayerResponse
 from app.services.fbref import FBrefService
 
@@ -74,9 +75,16 @@ def get_player(player_id: int, db: Session = Depends(get_db)):
 )
 def create_player(player: PlayerCreate, db: Session = Depends(get_db)):
     """Cria um novo jogador."""
+    if player.team_id is not None and not db.query(Team.id).filter(Team.id == player.team_id).first():
+        raise HTTPException(status_code=404, detail="Time não encontrado")
+
     db_player = Player(**player.model_dump())
     db.add(db_player)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Já existe um jogador com esse FBref ID")
     db.refresh(db_player)
     return db_player
 
@@ -93,10 +101,22 @@ def update_player(player_id: int, player: PlayerUpdate, db: Session = Depends(ge
     if not db_player:
         raise HTTPException(status_code=404, detail="Jogador não encontrado")
 
-    for key, value in player.model_dump(exclude_unset=True).items():
+    updates = player.model_dump(exclude_unset=True)
+    if "name" in updates and updates["name"] is None:
+        raise HTTPException(status_code=422, detail="O nome do jogador é obrigatório")
+    if updates.get("team_id") is not None and not db.query(Team.id).filter(
+        Team.id == updates["team_id"]
+    ).first():
+        raise HTTPException(status_code=404, detail="Time não encontrado")
+
+    for key, value in updates.items():
         setattr(db_player, key, value)
 
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Já existe um jogador com esse FBref ID")
     db.refresh(db_player)
     return db_player
 

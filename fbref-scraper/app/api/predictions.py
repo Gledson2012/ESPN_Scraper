@@ -14,7 +14,8 @@ MODEL_VERSION = "1.1.0"
 
 # Constantes do modelo
 DEFAULT_LEAGUE_AVG_GOALS = 2.7  # Usado quando não há dados suficientes
-MAX_GOALS = 10
+MAX_GOALS = 20
+MAX_LAMBDA = 10.0
 
 
 @router.post(
@@ -53,29 +54,58 @@ def predict_match(
         raise HTTPException(status_code=404, detail="Time(s) não encontrado(s)")
 
     # Obter estatísticas históricas dos times (casa/fora é aplicado nas funções de força)
-    home_stats = _get_team_stats(db, request.home_team_id)
-    away_stats = _get_team_stats(db, request.away_team_id)
+    home_stats = _get_team_stats(
+        db,
+        request.home_team_id,
+        competition=request.competition,
+        season=request.season,
+    )
+    away_stats = _get_team_stats(
+        db,
+        request.away_team_id,
+        competition=request.competition,
+        season=request.season,
+    )
 
-    if not home_stats or not away_stats:
+    if not _has_usable_stats(home_stats) or not _has_usable_stats(away_stats):
         raise HTTPException(
             status_code=400,
             detail="Dados insuficientes para gerar previsão. Execute o scraping de partidas primeiro.",
         )
 
     # Calcular forças de ataque e defesa (diferenciando casa/fora)
-    home_attack = _calculate_attack_strength(home_stats, is_home=True)
-    home_defense = _calculate_defense_strength(home_stats, is_home=True)
-    away_attack = _calculate_attack_strength(away_stats, is_home=False)
-    away_defense = _calculate_defense_strength(away_stats, is_home=False)
-
     # Média de gols da liga calculada dinamicamente
-    league_avg_goals = _calculate_league_avg_goals(db)
+    league_avg_goals = _calculate_league_avg_goals(
+        db,
+        competition=request.competition,
+        season=request.season,
+    )
     if league_avg_goals <= 0:
         league_avg_goals = DEFAULT_LEAGUE_AVG_GOALS
+    average_goals_per_team = league_avg_goals / 2
+
+    home_attack = _calculate_attack_strength(
+        home_stats, is_home=True, average_goals_per_team=average_goals_per_team
+    )
+    home_defense = _calculate_defense_strength(
+        home_stats, is_home=True, average_goals_per_team=average_goals_per_team
+    )
+    away_attack = _calculate_attack_strength(
+        away_stats, is_home=False, average_goals_per_team=average_goals_per_team
+    )
+    away_defense = _calculate_defense_strength(
+        away_stats, is_home=False, average_goals_per_team=average_goals_per_team
+    )
 
     # Calcular gols esperados (lambda do Poisson)
-    home_lambda = max(0.1, league_avg_goals / 2 * home_attack * away_defense)
-    away_lambda = max(0.1, league_avg_goals / 2 * away_attack * home_defense)
+    home_lambda = min(
+        MAX_LAMBDA,
+        max(0.1, average_goals_per_team * home_attack * away_defense),
+    )
+    away_lambda = min(
+        MAX_LAMBDA,
+        max(0.1, average_goals_per_team * away_attack * home_defense),
+    )
 
     # Calcular probabilidades
     home_win_prob = _poisson_match_probability(home_lambda, away_lambda, "home")
@@ -96,7 +126,9 @@ def predict_match(
     btts_prob = (1 - math.exp(-home_lambda)) * (1 - math.exp(-away_lambda))
 
     # Confiança baseada na quantidade de dados
-    confidence = min(0.95, 0.5 + len(home_stats) * 0.01 + len(away_stats) * 0.01)
+    home_samples = sum(1 for stat in home_stats if _has_usable_stat(stat))
+    away_samples = sum(1 for stat in away_stats if _has_usable_stat(stat))
+    confidence = min(0.95, 0.5 + home_samples * 0.01 + away_samples * 0.01)
 
     return PredictionResponse(
         home_team_id=request.home_team_id,
@@ -113,21 +145,39 @@ def predict_match(
     )
 
 
-def _get_team_stats(db: Session, team_id: int) -> List[MatchStats]:
-    """Obtém as estatísticas de partidas de um time."""
-    return (
-        db.query(MatchStats)
-        .filter(MatchStats.team_id == team_id)
-        .all()
+def _get_team_stats(
+    db: Session,
+    team_id: int,
+    competition: str | None = None,
+    season: str | None = None,
+) -> List[MatchStats]:
+    """Obtém estatísticas do time, opcionalmente limitadas a uma competição/temporada."""
+    query = db.query(MatchStats).join(Match, Match.id == MatchStats.match_id).filter(
+        MatchStats.team_id == team_id
     )
+    if competition:
+        query = query.filter(Match.competition == competition)
+    if season:
+        query = query.filter(Match.season == season)
+    return query.all()
 
 
-def _calculate_league_avg_goals(db: Session) -> float:
-    """Calcula a média de gols por partida na liga a partir dos dados disponíveis."""
+def _calculate_league_avg_goals(
+    db: Session,
+    competition: str | None = None,
+    season: str | None = None,
+) -> float:
+    """Calcula a média de gols usando o recorte de competição informado."""
     total_goals = 0
     total_matches = 0
 
-    matches = db.query(Match).all()
+    query = db.query(Match)
+    if competition:
+        query = query.filter(Match.competition == competition)
+    if season:
+        query = query.filter(Match.season == season)
+
+    matches = query.all()
     for match in matches:
         if match.home_score is not None and match.away_score is not None:
             total_goals += match.home_score + match.away_score
@@ -139,7 +189,11 @@ def _calculate_league_avg_goals(db: Session) -> float:
     return total_goals / total_matches
 
 
-def _calculate_attack_strength(stats: List[MatchStats], is_home: bool) -> float:
+def _calculate_attack_strength(
+    stats: List[MatchStats],
+    is_home: bool,
+    average_goals_per_team: float = DEFAULT_LEAGUE_AVG_GOALS / 2,
+) -> float:
     """
     Calcula a força de ataque de um time.
 
@@ -157,7 +211,7 @@ def _calculate_attack_strength(stats: List[MatchStats], is_home: bool) -> float:
     matches = 0
 
     for stat in subset:
-        if stat.xg is not None:
+        if _is_valid_metric(stat.xg):
             total_xg += stat.xg
             matches += 1
 
@@ -166,10 +220,14 @@ def _calculate_attack_strength(stats: List[MatchStats], is_home: bool) -> float:
 
     avg_goals_for = total_xg / matches
     # Força relativa (1.0 = média da liga)
-    return avg_goals_for / 1.35  # média de gols por time por partida
+    return avg_goals_for / max(0.1, average_goals_per_team)
 
 
-def _calculate_defense_strength(stats: List[MatchStats], is_home: bool) -> float:
+def _calculate_defense_strength(
+    stats: List[MatchStats],
+    is_home: bool,
+    average_goals_per_team: float = DEFAULT_LEAGUE_AVG_GOALS / 2,
+) -> float:
     """
     Calcula a força de defesa de um time.
 
@@ -187,7 +245,7 @@ def _calculate_defense_strength(stats: List[MatchStats], is_home: bool) -> float
     matches = 0
 
     for stat in subset:
-        if stat.xg_against is not None:
+        if _is_valid_metric(stat.xg_against):
             total_xg_against += stat.xg_against
             matches += 1
 
@@ -196,11 +254,26 @@ def _calculate_defense_strength(stats: List[MatchStats], is_home: bool) -> float
 
     avg_goals_against = total_xg_against / matches
     # Força relativa (1.0 = média da liga)
-    return avg_goals_against / 1.35
+    return avg_goals_against / max(0.1, average_goals_per_team)
+
+
+def _is_valid_metric(value: float | None) -> bool:
+    """Aceita apenas métricas numéricas finitas e não negativas."""
+    return value is not None and math.isfinite(value) and value >= 0
+
+
+def _has_usable_stat(stat: MatchStats) -> bool:
+    return _is_valid_metric(stat.xg) or _is_valid_metric(stat.xg_against)
+
+
+def _has_usable_stats(stats: List[MatchStats]) -> bool:
+    return any(_has_usable_stat(stat) for stat in stats)
 
 
 def _poisson_probability(k: int, lam: float) -> float:
     """Calcula a probabilidade de Poisson P(X = k)."""
+    if lam < 0 or not math.isfinite(lam):
+        return 0.0
     return (lam**k * math.exp(-lam)) / math.factorial(k)
 
 
@@ -241,4 +314,4 @@ def _over_2_5_probability(home_lambda: float, away_lambda: float) -> float:
                 p = _poisson_probability(i, home_lambda) * _poisson_probability(j, away_lambda)
                 prob_under += p
 
-    return 1 - prob_under
+    return max(0.0, min(1.0, 1 - prob_under))

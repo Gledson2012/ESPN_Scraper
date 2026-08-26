@@ -145,16 +145,23 @@ class CloudbetService:
     async def get_match_odds(self, home_team: str, away_team: str) -> Optional[Dict[str, Any]]:
         """Busca odds para uma partida específica entre dois times."""
         events = await self.search_events()
+        requested_home = home_team.strip().casefold()
+        requested_away = away_team.strip().casefold()
+        if not requested_home or not requested_away:
+            return None
+
         for event in events:
             home = event.get("home", {}) or {}
             away = event.get("away", {}) or {}
-            home_name = home.get("name", "").lower()
-            away_name = away.get("name", "").lower()
+            home_name = home.get("name", "").strip().casefold()
+            away_name = away.get("name", "").strip().casefold()
+            if not home_name or not away_name:
+                continue
 
             if (
-                home_team.lower() in home_name or home_name in home_team.lower()
+                requested_home in home_name or home_name in requested_home
             ) and (
-                away_team.lower() in away_name or away_name in away_team.lower()
+                requested_away in away_name or away_name in requested_away
             ):
                 return {
                     "event_id": event["id"],

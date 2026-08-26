@@ -78,3 +78,20 @@ def test_filter_matches_by_team(client, sample_match_data):
         match["home_team_id"] == team1["id"] or match["away_team_id"] == team1["id"]
         for match in data
     )
+
+
+def test_create_match_rejects_unknown_teams(client):
+    response = client.post(
+        "/api/v1/matches/",
+        json={"home_team_id": 99999, "away_team_id": 99998},
+    )
+    assert response.status_code == 404
+
+
+def test_create_match_rejects_same_team(client, sample_team_data):
+    team = client.post("/api/v1/teams/", json=sample_team_data).json()
+    response = client.post(
+        "/api/v1/matches/",
+        json={"home_team_id": team["id"], "away_team_id": team["id"]},
+    )
+    assert response.status_code == 422

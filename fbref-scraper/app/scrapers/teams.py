@@ -57,7 +57,8 @@ class TeamsScraper:
             if row.get("class") and "thead" in row.get("class", []):
                 continue
 
-            team_link = row.find("th", {"data-stat": "team"}).find("a")
+            team_cell = row.find("th", {"data-stat": "team"})
+            team_link = team_cell.find("a") if team_cell else None
             if not team_link:
                 continue
 
@@ -70,13 +71,15 @@ class TeamsScraper:
 
             # Extrair estatísticas básicas
             stats_cells = row.find_all("td")
-            if len(stats_cells) > 0:
+            if len(stats_cells) >= 6:
                 team_data["matches_played"] = self._safe_int(stats_cells[0].text)
                 team_data["wins"] = self._safe_int(stats_cells[1].text)
                 team_data["draws"] = self._safe_int(stats_cells[2].text)
                 team_data["losses"] = self._safe_int(stats_cells[3].text)
                 team_data["goals_for"] = self._safe_int(stats_cells[4].text)
                 team_data["goals_against"] = self._safe_int(stats_cells[5].text)
+            elif stats_cells:
+                logger.debug("Linha de time com colunas incompletas para %s", league)
 
             teams.append(team_data)
 

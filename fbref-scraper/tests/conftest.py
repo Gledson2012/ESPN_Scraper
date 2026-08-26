@@ -11,6 +11,7 @@ from sqlalchemy.pool import StaticPool
 # Garantir que o diretório do app está no path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+import app.main as main_module
 from app.main import app
 from app.database import Base, get_db
 from app.models import Match, MatchStats
@@ -60,7 +61,15 @@ app.dependency_overrides[get_db] = override_get_db
 @pytest.fixture
 def client():
     """Fornece um cliente de teste FastAPI."""
-    return TestClient(app)
+    # O lifespan verifica o schema; durante os testes ele deve usar o mesmo
+    # SQLite em memória do restante da suíte, não o PostgreSQL de produção.
+    production_engine = main_module.engine
+    main_module.engine = engine
+    try:
+        with TestClient(app) as test_client:
+            yield test_client
+    finally:
+        main_module.engine = production_engine
 
 
 @pytest.fixture

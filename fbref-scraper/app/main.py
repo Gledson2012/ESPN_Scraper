@@ -19,9 +19,10 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Cria as tabelas no banco de dados ao iniciar."""
-    logger.info("Criando tabelas no banco de dados...")
-    Base.metadata.create_all(bind=engine)
+    """Valida o schema ao iniciar; migrações são responsabilidade do deploy."""
+    if settings.AUTO_CREATE_SCHEMA:
+        logger.warning("AUTO_CREATE_SCHEMA ativo; use Alembic em ambientes de produção")
+        Base.metadata.create_all(bind=engine)
 
     # Avisa quando o schema não é gerenciado pelo Alembic (migrações versionadas)
     try:
@@ -31,19 +32,20 @@ async def lifespan(app: FastAPI):
             ).fetchone() is not None
     except Exception:
         has_version_table = False
-    if not has_version_table:
+    if not has_version_table and not settings.AUTO_CREATE_SCHEMA:
         logger.warning(
-            "Schema criado via create_all (sem tabela alembic_version). "
-            "Em produção, use 'alembic upgrade head' para migrações versionadas."
+            "Tabela alembic_version ausente. Execute 'alembic upgrade head' "
+            "antes de usar a API."
         )
 
-    logger.info("Tabelas criadas com sucesso.")
+    logger.info("Verificação do schema concluída.")
     yield
 
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
+    debug=settings.DEBUG,
     description="""
 # ⚽ FBref Scraper API
 
@@ -127,11 +129,17 @@ Este projeto é para fins educacionais. Respeite os termos de serviço do FBref 
     ],
 )
 
-# CORS
+cors_origins = [
+    origin.strip()
+    for origin in settings.CORS_ORIGINS.split(",")
+    if origin.strip()
+]
+
+# Sem origens configuradas, mantém acesso público sem habilitar credenciais.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=cors_origins or ["*"],
+    allow_credentials=bool(cors_origins),
     allow_methods=["*"],
     allow_headers=["*"],
 )

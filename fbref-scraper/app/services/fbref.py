@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 from typing import List, Optional
 
 from sqlalchemy.orm import Session
@@ -35,12 +36,21 @@ class FBrefService:
         return saved_teams
 
     def _get_or_create_team(self, team_data: dict) -> Team:
-        """Busca um time pelo fbref_id ou cria um novo."""
+        """Busca um time pelo identificador e atualiza os dados coletados."""
         fbref_id = team_data.get("fbref_id")
         team = None
 
         if fbref_id:
             team = self.db.query(Team).filter(Team.fbref_id == fbref_id).first()
+        elif team_data.get("name"):
+            team = (
+                self.db.query(Team)
+                .filter(
+                    Team.name == team_data["name"],
+                    Team.league == team_data.get("league"),
+                )
+                .first()
+            )
 
         if not team:
             team = Team(
@@ -51,15 +61,16 @@ class FBrefService:
             self.db.add(team)
             self.db.flush()
 
-            # Tentar enriquecer com detalhes do time
-            try:
-                details = self.teams_scraper.get_team_details(fbref_id)
-                if details:
-                    for field in ["short_name", "country", "stadium", "founded", "website"]:
-                        if details.get(field):
-                            setattr(team, field, details[field])
-            except Exception as e:
-                logger.warning(f"Erro ao buscar detalhes do time {fbref_id}: {e}")
+        else:
+            self._update_fields(team, team_data, ["name", "league"])
+
+        # O endpoint de elenco contém os dados atuais; detalhes extras só são
+        # buscados quando ainda faltam no registro, evitando chamadas repetidas.
+        if fbref_id and any(
+            getattr(team, field) is None
+            for field in ["short_name", "country", "stadium", "founded", "website"]
+        ):
+            self._enrich_team(team, fbref_id)
 
         return team
 
@@ -84,12 +95,18 @@ class FBrefService:
         return saved_players
 
     def _get_or_create_player(self, player_data: dict, team_id: int) -> Player:
-        """Busca um jogador pelo fbref_id ou cria um novo."""
+        """Busca um jogador pelo identificador e atualiza os dados coletados."""
         fbref_id = player_data.get("fbref_id")
         player = None
 
         if fbref_id:
             player = self.db.query(Player).filter(Player.fbref_id == fbref_id).first()
+        elif player_data.get("name"):
+            player = (
+                self.db.query(Player)
+                .filter(Player.name == player_data["name"], Player.team_id == team_id)
+                .first()
+            )
 
         if not player:
             player = Player(
@@ -102,39 +119,20 @@ class FBrefService:
             )
             self.db.add(player)
             self.db.flush()
+        else:
+            self._update_fields(
+                player,
+                player_data,
+                ["name", "position", "shirt_number", "nationality"],
+            )
+            # Um jogador pode mudar de clube entre duas coletas.
+            player.team_id = team_id
 
-            # Tentar enriquecer com detalhes do jogador
-            try:
-                details = self.players_scraper.get_player_details(fbref_id)
-                if details:
-                    if details.get("full_name"):
-                        player.full_name = details["full_name"]
-                    if details.get("born"):
-                        birth_text = details["born"]
-                        try:
-                            from datetime import datetime
-                            player.birth_date = datetime.strptime(birth_text, "%B %d, %Y")
-                        except (ValueError, TypeError):
-                            pass
-                    if details.get("height"):
-                        height_text = details["height"]
-                        try:
-                            # Ex: "1,85m" ou "185cm"
-                            height_clean = height_text.replace("m", "").replace("cm", "").replace(",", ".").strip()
-                            if "." in height_clean and float(height_clean) < 3:
-                                player.height_cm = float(height_clean) * 100
-                            else:
-                                player.height_cm = float(height_clean)
-                        except (ValueError, TypeError):
-                            pass
-                    if details.get("weight"):
-                        weight_text = details["weight"]
-                        try:
-                            player.weight_kg = float(weight_text.replace("kg", "").replace(",", ".").strip())
-                        except (ValueError, TypeError):
-                            pass
-            except Exception as e:
-                logger.warning(f"Erro ao buscar detalhes do jogador {fbref_id}: {e}")
+        if fbref_id and any(
+            getattr(player, field) is None
+            for field in ["full_name", "birth_date", "height_cm", "weight_kg", "foot"]
+        ):
+            self._enrich_player(player, fbref_id)
 
         return player
 
@@ -161,8 +159,6 @@ class FBrefService:
             return None
 
         match = self.db.query(Match).filter(Match.fbref_id == fbref_id).first()
-        if match:
-            return match
 
         # Buscar times
         home_team = self.db.query(Team).filter(
@@ -172,7 +168,20 @@ class FBrefService:
             Team.fbref_id == match_data.get("away_team_fbref_id")
         ).first()
 
-        if not home_team or not away_team:
+        if match:
+            # Atualiza o que veio da coleta, mas preserva valores já conhecidos
+            # quando o FBref retornar uma célula vazia.
+            if home_team and away_team and home_team.id != away_team.id:
+                match.home_team_id = home_team.id
+                match.away_team_id = away_team.id
+            self._update_fields(
+                match,
+                match_data,
+                ["competition", "season", "match_date", "home_score", "away_score"],
+            )
+            return match
+
+        if not home_team or not away_team or home_team.id == away_team.id:
             logger.warning(f"Times não encontrados para partida {fbref_id}")
             return None
 
@@ -189,18 +198,7 @@ class FBrefService:
         self.db.add(match)
         self.db.flush()
 
-        # Tentar enriquecer com detalhes da partida
-        try:
-            details = self.matches_scraper.get_match_details(fbref_id)
-            if details:
-                if details.get("venue"):
-                    match.venue = details["venue"]
-                if details.get("attendance"):
-                    match.attendance = details["attendance"]
-                if details.get("referee"):
-                    match.referee = details["referee"]
-        except Exception as e:
-            logger.warning(f"Erro ao buscar detalhes da partida {fbref_id}: {e}")
+        self._enrich_match(match, fbref_id)
 
         return match
 
@@ -213,13 +211,16 @@ class FBrefService:
             logger.warning(f"Partida com fbref_id {fbref_match_id} não encontrada no banco")
             return None
 
-        stats_data = self.statistics_scraper.get_match_statistics(fbref_match_id)
+        stats_data = self.statistics_scraper.get_match_statistics(fbref_match_id) or {}
 
         # Não apagar dados existentes quando a coleta não retorna estatísticas reais
-        has_stats = any(
-            key.startswith(("home_", "away_")) and key not in ("home_team", "away_team")
+        stat_keys = [
+            key
             for key in stats_data
-        )
+            if key.startswith(("home_", "away_"))
+            and key not in ("home_team", "away_team")
+        ]
+        has_stats = any(stats_data.get(key) is not None for key in stat_keys)
         if not has_stats:
             logger.warning(f"Nenhuma estatística coletada para a partida {fbref_match_id}; mantendo dados existentes")
             return None
@@ -272,3 +273,81 @@ class FBrefService:
         self.db.commit()
         logger.info(f"Estatísticas salvas para partida {fbref_match_id}")
         return home_stats
+
+    @staticmethod
+    def _update_fields(model, data: dict, fields: List[str]) -> None:
+        """Atualiza somente campos presentes e não nulos na coleta."""
+        for field in fields:
+            value = data.get(field)
+            if value is not None:
+                setattr(model, field, value)
+
+    def _enrich_team(self, team: Team, fbref_id: str) -> None:
+        """Preenche detalhes opcionais do time sem invalidar a coleta principal."""
+        try:
+            details = self.teams_scraper.get_team_details(fbref_id)
+            if not details:
+                return
+            self._update_fields(team, details, ["short_name", "country", "stadium", "website"])
+            founded = details.get("founded")
+            if founded is not None:
+                try:
+                    team.founded = int(str(founded).replace(",", "").strip())
+                except (TypeError, ValueError):
+                    logger.debug("Ano de fundação inválido para o time %s: %s", fbref_id, founded)
+        except Exception as e:  # noqa: BLE001
+            logger.warning(f"Erro ao buscar detalhes do time {fbref_id}: {e}")
+
+    def _enrich_player(self, player: Player, fbref_id: str) -> None:
+        """Preenche detalhes opcionais do jogador com parsing tolerante."""
+        try:
+            details = self.players_scraper.get_player_details(fbref_id)
+            if not details:
+                return
+            self._update_fields(player, details, ["full_name"])
+            if details.get("footed") is not None:
+                player.foot = details["footed"]
+
+            birth_text = details.get("born")
+            if birth_text:
+                for date_format in ("%B %d, %Y", "%b %d, %Y", "%Y-%m-%d"):
+                    try:
+                        player.birth_date = datetime.strptime(birth_text.strip(), date_format)
+                        break
+                    except (ValueError, TypeError):
+                        continue
+
+            height_text = details.get("height")
+            if height_text:
+                try:
+                    height_clean = str(height_text).lower().replace(",", ".").strip()
+                    if "cm" in height_clean:
+                        player.height_cm = float(height_clean.replace("cm", "").strip())
+                    elif "m" in height_clean:
+                        player.height_cm = float(height_clean.replace("m", "").strip()) * 100
+                    else:
+                        height_value = float(height_clean)
+                        player.height_cm = height_value * 100 if height_value < 3 else height_value
+                except (ValueError, TypeError):
+                    logger.debug("Altura inválida para o jogador %s: %s", fbref_id, height_text)
+
+            weight_text = details.get("weight")
+            if weight_text:
+                try:
+                    player.weight_kg = float(
+                        str(weight_text).lower().replace("kg", "").replace(",", ".").strip()
+                    )
+                except (ValueError, TypeError):
+                    logger.debug("Peso inválido para o jogador %s: %s", fbref_id, weight_text)
+        except Exception as e:  # noqa: BLE001
+            logger.warning(f"Erro ao buscar detalhes do jogador {fbref_id}: {e}")
+
+    def _enrich_match(self, match: Match, fbref_id: str) -> None:
+        """Preenche detalhes opcionais da partida sem ocultar falhas de rede."""
+        try:
+            details = self.matches_scraper.get_match_details(fbref_id)
+            if details:
+                self._update_fields(match, details, ["venue", "attendance", "referee"])
+                self._update_fields(match, details, ["home_score", "away_score"])
+        except Exception as e:  # noqa: BLE001
+            logger.warning(f"Erro ao buscar detalhes da partida {fbref_id}: {e}")

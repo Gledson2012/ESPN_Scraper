@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Union
 
 
 class OddsSelection(BaseModel):
@@ -22,25 +22,25 @@ class OddsMarket(BaseModel):
 class EventOdds(BaseModel):
     """Odds de um evento/partida."""
 
-    event_id: str = Field(..., description="ID do evento", examples=["abc123"])
+    event_id: Union[str, int] = Field(..., description="ID do evento", examples=["abc123"])
     event_name: str = Field(..., description="Nome do evento", examples=["Flamengo vs Palmeiras"])
     home_team: Optional[str] = Field(None, description="Time da casa", examples=["Flamengo"])
     away_team: Optional[str] = Field(None, description="Time visitante", examples=["Palmeiras"])
     start_time: Optional[str] = Field(None, description="Horário de início", examples=["2026-04-10T20:00:00Z"])
     competition: Optional[Dict[str, Any]] = Field(None, description="Informações da competição")
-    markets: Dict[str, Any] = Field(default={}, description="Mercados de apostas do evento")
+    markets: Dict[str, Any] = Field(default_factory=dict, description="Mercados de apostas do evento")
     status: Optional[str] = Field(None, description="Status do evento", examples=["pre_match"])
 
 
 class MatchOddsResponse(BaseModel):
     """Resposta com odds de uma partida específica."""
 
-    event_id: str = Field(..., description="ID do evento", examples=["abc123"])
+    event_id: Union[str, int] = Field(..., description="ID do evento", examples=["abc123"])
     event_name: str = Field(..., description="Nome do evento", examples=["Flamengo vs Palmeiras"])
     start_time: Optional[str] = Field(None, description="Horário de início", examples=["2026-04-10T20:00:00Z"])
     home_team: str = Field(..., description="Time da casa", examples=["Flamengo"])
     away_team: str = Field(..., description="Time visitante", examples=["Palmeiras"])
-    markets: Dict[str, Any] = Field(default={}, description="Mercados de apostas do evento")
+    markets: Dict[str, Any] = Field(default_factory=dict, description="Mercados de apostas do evento")
 
 
 class SoccerOddsResponse(BaseModel):

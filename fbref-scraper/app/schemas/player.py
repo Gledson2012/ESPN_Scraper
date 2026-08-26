@@ -6,16 +6,16 @@ from typing import Optional
 class PlayerBase(BaseModel):
     """Modelo base de um jogador de futebol."""
 
-    name: str = Field(..., description="Nome do jogador", examples=["Vinícius Júnior"])
+    name: str = Field(..., min_length=1, max_length=255, description="Nome do jogador", examples=["Vinícius Júnior"])
     full_name: Optional[str] = Field(None, description="Nome completo do jogador", examples=["Vinícius José Paixão de Oliveira Júnior"])
     birth_date: Optional[datetime] = Field(None, description="Data de nascimento", examples=["2000-07-12T00:00:00"])
     nationality: Optional[str] = Field(None, description="Nacionalidade", examples=["Brasil"])
     position: Optional[str] = Field(None, description="Posição em campo", examples=["FW"])
     foot: Optional[str] = Field(None, description="Pé dominante", examples=["Esquerdo"])
-    height_cm: Optional[float] = Field(None, description="Altura em centímetros", examples=[176.0])
-    weight_kg: Optional[float] = Field(None, description="Peso em quilogramas", examples=[73.0])
-    shirt_number: Optional[int] = Field(None, description="Número da camisa", examples=[7])
-    team_id: Optional[int] = Field(None, description="ID do time", examples=[1])
+    height_cm: Optional[float] = Field(None, ge=0, le=300, description="Altura em centímetros", examples=[176.0])
+    weight_kg: Optional[float] = Field(None, ge=0, le=500, description="Peso em quilogramas", examples=[73.0])
+    shirt_number: Optional[int] = Field(None, ge=0, le=99, description="Número da camisa", examples=[7])
+    team_id: Optional[int] = Field(None, gt=0, description="ID do time", examples=[1])
     fbref_id: Optional[str] = Field(None, description="ID do jogador no FBref", examples=["vinicius-junior"])
 
 
@@ -26,16 +26,16 @@ class PlayerCreate(PlayerBase):
 class PlayerUpdate(BaseModel):
     """Dados para atualizar um jogador existente."""
 
-    name: Optional[str] = Field(None, description="Nome do jogador", examples=["Vinícius Júnior"])
+    name: Optional[str] = Field(None, min_length=1, max_length=255, description="Nome do jogador", examples=["Vinícius Júnior"])
     full_name: Optional[str] = Field(None, description="Nome completo do jogador", examples=["Vinícius José Paixão de Oliveira Júnior"])
     birth_date: Optional[datetime] = Field(None, description="Data de nascimento", examples=["2000-07-12T00:00:00"])
     nationality: Optional[str] = Field(None, description="Nacionalidade", examples=["Brasil"])
     position: Optional[str] = Field(None, description="Posição em campo", examples=["FW"])
     foot: Optional[str] = Field(None, description="Pé dominante", examples=["Esquerdo"])
-    height_cm: Optional[float] = Field(None, description="Altura em centímetros", examples=[176.0])
-    weight_kg: Optional[float] = Field(None, description="Peso em quilogramas", examples=[73.0])
-    shirt_number: Optional[int] = Field(None, description="Número da camisa", examples=[7])
-    team_id: Optional[int] = Field(None, description="ID do time", examples=[1])
+    height_cm: Optional[float] = Field(None, ge=0, le=300, description="Altura em centímetros", examples=[176.0])
+    weight_kg: Optional[float] = Field(None, ge=0, le=500, description="Peso em quilogramas", examples=[73.0])
+    shirt_number: Optional[int] = Field(None, ge=0, le=99, description="Número da camisa", examples=[7])
+    team_id: Optional[int] = Field(None, gt=0, description="ID do time", examples=[1])
     fbref_id: Optional[str] = Field(None, description="ID do jogador no FBref", examples=["vinicius-junior"])
 
 

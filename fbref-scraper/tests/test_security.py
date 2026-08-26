@@ -16,9 +16,18 @@ from app.config import settings
 # ===== API key =====
 
 def test_require_api_key_disabled_by_default(monkeypatch):
-    """Com API_KEY vazio, os endpoints de scraping não exigem autenticação."""
+    """O bypass sem chave só funciona quando explicitamente ativado."""
     monkeypatch.setattr(settings, "API_KEY", "")
+    monkeypatch.setattr(settings, "ALLOW_UNAUTHENTICATED_SCRAPING", True)
     require_api_key(x_api_key="")  # não deve lançar
+
+
+def test_require_api_key_rejects_missing_configuration(monkeypatch):
+    monkeypatch.setattr(settings, "API_KEY", "")
+    monkeypatch.setattr(settings, "ALLOW_UNAUTHENTICATED_SCRAPING", False)
+    with pytest.raises(HTTPException) as exc:
+        require_api_key(x_api_key="")
+    assert exc.value.status_code == 503
 
 
 def test_require_api_key_rejects_missing(monkeypatch):

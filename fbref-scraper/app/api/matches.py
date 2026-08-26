@@ -4,11 +4,12 @@ from datetime import datetime
 
 import requests
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.security import require_api_key, scrape_rate_limiter
 from app.database import get_db
-from app.models import Match
+from app.models import Match, Team
 from app.schemas import MatchCreate, MatchUpdate, MatchResponse
 from app.services.fbref import FBrefService
 
@@ -35,7 +36,7 @@ router = APIRouter(prefix="/matches", tags=["matches"])
 def list_matches(
     competition: Optional[str] = Query(None, description="Filtrar por competição", examples=["Serie-A"]),
     season: Optional[str] = Query(None, description="Filtrar por temporada", examples=["2024-2025"]),
-    team_id: Optional[int] = Query(None, description="Filtrar por time (casa ou fora)", examples=[1]),
+    team_id: Optional[int] = Query(None, gt=0, description="Filtrar por time (casa ou fora)", examples=[1]),
     date_from: Optional[datetime] = Query(None, description="Data inicial (formato ISO)", examples=["2025-01-01T00:00:00"]),
     date_to: Optional[datetime] = Query(None, description="Data final (formato ISO)", examples=["2025-12-31T23:59:59"]),
     skip: int = Query(0, ge=0, description="Quantidade de registros para pular"),
@@ -84,9 +85,18 @@ def get_match(match_id: int, db: Session = Depends(get_db)):
 )
 def create_match(match: MatchCreate, db: Session = Depends(get_db)):
     """Cria uma nova partida."""
+    if not db.query(Team.id).filter(Team.id == match.home_team_id).first():
+        raise HTTPException(status_code=404, detail="Time da casa não encontrado")
+    if not db.query(Team.id).filter(Team.id == match.away_team_id).first():
+        raise HTTPException(status_code=404, detail="Time visitante não encontrado")
+
     db_match = Match(**match.model_dump())
     db.add(db_match)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Já existe uma partida com esse FBref ID")
     db.refresh(db_match)
     return db_match
 
@@ -103,10 +113,26 @@ def update_match(match_id: int, match: MatchUpdate, db: Session = Depends(get_db
     if not db_match:
         raise HTTPException(status_code=404, detail="Partida não encontrada")
 
-    for key, value in match.model_dump(exclude_unset=True).items():
+    updates = match.model_dump(exclude_unset=True)
+    home_team_id = updates.get("home_team_id", db_match.home_team_id)
+    away_team_id = updates.get("away_team_id", db_match.away_team_id)
+    if home_team_id is None or away_team_id is None:
+        raise HTTPException(status_code=422, detail="Os dois times da partida são obrigatórios")
+    if home_team_id == away_team_id:
+        raise HTTPException(status_code=422, detail="O time da casa deve ser diferente do time visitante")
+    if not db.query(Team.id).filter(Team.id == home_team_id).first():
+        raise HTTPException(status_code=404, detail="Time da casa não encontrado")
+    if not db.query(Team.id).filter(Team.id == away_team_id).first():
+        raise HTTPException(status_code=404, detail="Time visitante não encontrado")
+
+    for key, value in updates.items():
         setattr(db_match, key, value)
 
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Já existe uma partida com esse FBref ID")
     db.refresh(db_match)
     return db_match
 

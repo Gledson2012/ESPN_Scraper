@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Float
+from sqlalchemy import CheckConstraint, Column, Integer, String, DateTime, ForeignKey, Float
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 
@@ -10,9 +10,26 @@ class Match(Base):
 
     __tablename__ = "matches"
 
+    __table_args__ = (
+        CheckConstraint(
+            "home_team_id <> away_team_id",
+            name="ck_matches_different_teams",
+        ),
+        CheckConstraint(
+            "(home_score IS NULL OR home_score >= 0) AND "
+            "(away_score IS NULL OR away_score >= 0)",
+            name="ck_matches_non_negative_scores",
+        ),
+        CheckConstraint(
+            "(home_xg IS NULL OR home_xg >= 0) AND "
+            "(away_xg IS NULL OR away_xg >= 0)",
+            name="ck_matches_non_negative_xg",
+        ),
+    )
+
     id = Column(Integer, primary_key=True, index=True)
-    home_team_id = Column(Integer, ForeignKey("teams.id"), index=True)
-    away_team_id = Column(Integer, ForeignKey("teams.id"), index=True)
+    home_team_id = Column(Integer, ForeignKey("teams.id"), nullable=False, index=True)
+    away_team_id = Column(Integer, ForeignKey("teams.id"), nullable=False, index=True)
     competition = Column(String(100), index=True)
     season = Column(String(20), index=True)
     match_date = Column(DateTime, index=True)
