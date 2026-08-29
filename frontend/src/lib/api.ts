@@ -1,5 +1,5 @@
 import { mockMatches, mockOdds, mockTeams } from '../data/mockData'
-import type { Match, OddsEvent, Player, Prediction, PredictionRequest, SoccerOddsResponse, Team } from '../types/api'
+import type { LiveMatch, Match, OddsEvent, Player, Prediction, PredictionRequest, SoccerOddsResponse, Team } from '../types/api'
 
 const browserHost = typeof window !== 'undefined' ? window.location.hostname : 'localhost'
 const API_URL = (import.meta.env.VITE_API_URL || `http://${browserHost}:8000/api/v1`).replace(/\/$/, '')
@@ -49,6 +49,10 @@ export const api = {
 
   async getMatches(): Promise<Match[]> {
     return request<Match[]>('/matches/?limit=100')
+  },
+
+  async getLiveMatches(): Promise<LiveMatch[]> {
+    return request<LiveMatch[]>('/matches/live')
   },
 
   async getOdds(): Promise<SoccerOddsResponse> {

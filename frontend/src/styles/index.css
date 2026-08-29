@@ -222,3 +222,14 @@ h1 { margin-bottom: 9px; color: var(--ink); font-size: clamp(27px, 3vw, 37px); l
   .player-team-filter { width: 100%; }
   .players-grid { grid-template-columns: 1fr; }
 }
+
+/* Jogos ao vivo (tempo real da ESPN) */
+.match-status.live { display: inline-flex; align-items: center; gap: 6px; color: #d93636; }
+.live-dot { width: 7px; height: 7px; border-radius: 50%; background: #d93636; animation: live-pulse 1.2s ease-in-out infinite; }
+@keyframes live-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+.live-card { border-color: #f4c7c7; }
+.live-card:hover { border-color: #eba7a7; }
+.live-team { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.live-team span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.live-team-logo { width: 26px; height: 26px; object-fit: contain; }
+.empty-card { display: flex; align-items: center; justify-content: center; gap: 7px; }

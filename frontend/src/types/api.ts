@@ -89,3 +89,18 @@ export interface SoccerOddsResponse {
   events: OddsEvent[]
   total: number
 }
+
+export interface LiveMatch {
+  league: string
+  espn_event_id: string
+  status: string
+  clock?: Nullable<string>
+  match_date?: Nullable<string>
+  venue?: Nullable<string>
+  home_team: string
+  away_team: string
+  home_score?: Nullable<number>
+  away_score?: Nullable<number>
+  home_team_logo?: Nullable<string>
+  away_team_logo?: Nullable<string>
+}
