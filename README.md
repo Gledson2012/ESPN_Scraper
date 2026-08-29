@@ -9,7 +9,7 @@
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)
-![CI/CD](https://github.com/Gledson2012/ESPN-Scraper/actions/workflows/ci.yml/badge.svg)
+![CI/CD](https://github.com/Gledson2012/ESPN_Scraper/actions/workflows/ci.yml/badge.svg)
 
 [🚀 Início Rápido](#-início-rápido) • [📚 Endpoints](#-endpoints) • [🏆 Ligas Suportadas](#-ligas-suportadas) • [🛠️ Tecnologias](#️-tecnologias) • [📖 Documentação](#-documentação)
 
@@ -46,8 +46,8 @@ Esta API coleta dados de futebol da **ESPN**, gera **previsões de partidas** us
 
 ```bash
 # Clone o repositório
-git clone https://github.com/Gledson2012/ESPN-Scraper.git
-cd ESPN-Scraper/espn-scraper
+git clone https://github.com/Gledson2012/ESPN_Scraper.git
+cd ESPN_Scraper/espn-scraper
 
 # Configure credenciais locais (substitua os valores do arquivo)
 cp .env.example .env
@@ -68,7 +68,7 @@ docker compose exec api python scripts/sync_real_matches.py --league Serie-A --i
 Com a API em execução, abra outro terminal:
 
 ```bash
-cd ESPN-Scraper/frontend
+cd ESPN_Scraper/frontend
 npm install
 cp .env.example .env
 npm run dev
@@ -82,8 +82,8 @@ necessário.
 
 ```bash
 # Clone o repositório
-git clone https://github.com/Gledson2012/ESPN-Scraper.git
-cd ESPN-Scraper/espn-scraper
+git clone https://github.com/Gledson2012/ESPN_Scraper.git
+cd ESPN_Scraper/espn-scraper
 
 # Crie um ambiente virtual
 python -m venv venv
@@ -278,7 +278,7 @@ curl -X POST "http://localhost:8000/api/v1/predictions/" \
 ## 📁 Estrutura do Projeto
 
 ```
-ESPN-Scraper/
+ESPN_Scraper/
 ├── espn-scraper/           # API principal
 │   ├── app/
 │   │   ├── api/             # Rotas da API
@@ -427,7 +427,7 @@ Contribuições são bem-vindas! Siga estes passos:
 
 O CI publica o dashboard a cada push na `main` em:
 
-**https://gledson2012.github.io/ESPN-Scraper/**
+**https://gledson2012.github.io/ESPN_Scraper/**
 
 > Requer ativar **Settings → Pages → Build and deployment → Source: GitHub Actions** (uma vez só).
 
@@ -438,7 +438,7 @@ A URL da API consumida pelo frontend vem da variável de repositório `PUBLIC_AP
 
 O repositório já inclui [`railway.json`](railway.json) (builder Dockerfile, healthcheck em `/health`).
 
-1. Crie um projeto em **https://railway.app/new** → *Deploy from GitHub repo* → `ESPN-Scraper`
+1. Crie um projeto em **https://railway.app/new** → *Deploy from GitHub repo* → `ESPN_Scraper`
 2. No projeto, adicione os plugins: **PostgreSQL** e **Redis**
 3. No serviço da API, configure as variáveis:
    | Variável | Valor |
@@ -450,7 +450,7 @@ O repositório já inclui [`railway.json`](railway.json) (builder Dockerfile, he
 4. Gere a URL pública (**Settings → Networking → Generate Domain**)
 5. Volte ao GitHub e crie a variável `PUBLIC_API_URL` com essa URL (passo do frontend acima)
 
-A imagem Docker também é publicada automaticamente em `ghcr.io/gledson2012/espn-scraper` pelo job `build` do CI.
+A imagem Docker também é publicada automaticamente em `ghcr.io/gledson2012/espn_scraper` pelo job `build` do CI.
 
 ### API — Opção 100% gratuita (Render + Neon)
 
