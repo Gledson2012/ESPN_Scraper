@@ -1,4 +1,4 @@
-import type { Match, OddsEvent, Team } from '../types/api'
+import type { Match, OddsEvent, Player, Team } from '../types/api'
 
 export const DEMO_DATA_AS_OF = '27/08/2026'
 export const DEMO_DATA_SOURCE_URL = 'https://jc.uol.com.br/blog-do-torcedor/onde-assistir/2026/08/27/jogos-de-hoje-27-08-confira-a-programacao-do-futebol-horarios-e-onde-assistir.html'
@@ -14,6 +14,27 @@ export const mockTeams: Team[] = [
   { id: 8, name: 'Luton Town', short_name: 'LUT', country: 'Inglaterra', league: 'Copa da Liga Inglesa', stadium: 'Kenilworth Road' },
   { id: 9, name: 'Fulham', short_name: 'FUL', country: 'Inglaterra', league: 'Copa da Liga Inglesa', stadium: 'Craven Cottage' },
   { id: 10, name: 'AFC Wimbledon', short_name: 'WIM', country: 'Inglaterra', league: 'Copa da Liga Inglesa', stadium: 'Plough Lane' },
+]
+
+export const mockPlayers: Player[] = [
+  { id: 1001, name: 'Alan Patrick', full_name: null, birth_date: null, nationality: 'Brasil', position: 'MF', foot: null, height_cm: null, weight_kg: null, shirt_number: 10, team_id: 1, fbref_id: null, photo_url: null },
+  { id: 1002, name: 'Sergio Rochet', full_name: null, birth_date: null, nationality: 'Uruguai', position: 'GK', foot: null, height_cm: null, weight_kg: null, shirt_number: 1, team_id: 1, fbref_id: null, photo_url: null },
+  { id: 1003, name: 'Rafael Borré', full_name: null, birth_date: null, nationality: 'Colômbia', position: 'FW', foot: null, height_cm: null, weight_kg: null, shirt_number: 9, team_id: 1, fbref_id: null, photo_url: null },
+  { id: 1004, name: 'Franco Cristaldo', full_name: null, birth_date: null, nationality: 'Argentina', position: 'MF', foot: null, height_cm: null, weight_kg: null, shirt_number: 10, team_id: 2, fbref_id: null, photo_url: null },
+  { id: 1005, name: 'Martin Braithwaite', full_name: null, birth_date: null, nationality: 'Dinamarca', position: 'FW', foot: null, height_cm: null, weight_kg: null, shirt_number: 22, team_id: 2, fbref_id: null, photo_url: null },
+  { id: 1006, name: 'Iago Aspas', full_name: null, birth_date: null, nationality: 'Espanha', position: 'FW', foot: null, height_cm: null, weight_kg: null, shirt_number: 10, team_id: 3, fbref_id: null, photo_url: null },
+  { id: 1007, name: 'Ante Budimir', full_name: null, birth_date: null, nationality: 'Croácia', position: 'FW', foot: null, height_cm: null, weight_kg: null, shirt_number: 17, team_id: 4, fbref_id: null, photo_url: null },
+  { id: 1008, name: 'Robert Lewandowski', full_name: null, birth_date: null, nationality: 'Polônia', position: 'FW', foot: null, height_cm: null, weight_kg: null, shirt_number: 9, team_id: 5, fbref_id: null, photo_url: null },
+  { id: 1009, name: 'Pedri', full_name: null, birth_date: null, nationality: 'Espanha', position: 'MF', foot: null, height_cm: null, weight_kg: null, shirt_number: 8, team_id: 5, fbref_id: null, photo_url: null },
+  { id: 1010, name: 'Raphinha', full_name: null, birth_date: null, nationality: 'Brasil', position: 'FW', foot: null, height_cm: null, weight_kg: null, shirt_number: 11, team_id: 5, fbref_id: null, photo_url: null },
+  { id: 1011, name: 'Iñaki Williams', full_name: null, birth_date: null, nationality: 'Gana', position: 'FW', foot: null, height_cm: null, weight_kg: null, shirt_number: 9, team_id: 6, fbref_id: null, photo_url: null },
+  { id: 1012, name: 'Nico Williams', full_name: null, birth_date: null, nationality: 'Espanha', position: 'FW', foot: null, height_cm: null, weight_kg: null, shirt_number: 10, team_id: 6, fbref_id: null, photo_url: null },
+  { id: 1013, name: 'Cole Palmer', full_name: null, birth_date: null, nationality: 'Inglaterra', position: 'MF', foot: null, height_cm: null, weight_kg: null, shirt_number: 20, team_id: 7, fbref_id: null, photo_url: null },
+  { id: 1014, name: 'Enzo Fernández', full_name: null, birth_date: null, nationality: 'Argentina', position: 'MF', foot: null, height_cm: null, weight_kg: null, shirt_number: 8, team_id: 7, fbref_id: null, photo_url: null },
+  { id: 1015, name: 'Nicolas Jackson', full_name: null, birth_date: null, nationality: 'Senegal', position: 'FW', foot: null, height_cm: null, weight_kg: null, shirt_number: 15, team_id: 7, fbref_id: null, photo_url: null },
+  { id: 1016, name: 'Carlton Morris', full_name: null, birth_date: null, nationality: 'Inglaterra', position: 'FW', foot: null, height_cm: null, weight_kg: null, shirt_number: 9, team_id: 8, fbref_id: null, photo_url: null },
+  { id: 1017, name: 'João Palhinha', full_name: null, birth_date: null, nationality: 'Portugal', position: 'MF', foot: null, height_cm: null, weight_kg: null, shirt_number: 26, team_id: 9, fbref_id: null, photo_url: null },
+  { id: 1018, name: 'Jake Reeves', full_name: null, birth_date: null, nationality: 'Inglaterra', position: 'MF', foot: null, height_cm: null, weight_kg: null, shirt_number: 4, team_id: 10, fbref_id: null, photo_url: null },
 ]
 
 export const mockMatches: Match[] = [

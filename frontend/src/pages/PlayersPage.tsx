@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { LoadingState } from '../components/LoadingState'
 import { PageHeader } from '../components/PageHeader'
 import { api } from '../lib/api'
+import { mockPlayers, mockTeams } from '../data/mockData'
 import type { Player, Team } from '../types/api'
 
 const positionLabels: Record<string, string> = {
@@ -44,16 +45,20 @@ export function PlayersPage() {
   const [selectedTeamId, setSelectedTeamId] = useState('all')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [demo, setDemo] = useState(false)
 
   const loadPlayers = useCallback(() => {
     setLoading(true)
     setError('')
-    Promise.all([api.getPlayers(), api.getTeams()])
-      .then(([playerData, teamData]) => {
+    Promise.allSettled([api.getPlayers(), api.getTeams()])
+      .then(([playersResult, teamsResult]) => {
+        const playerData = playersResult.status === 'fulfilled' && playersResult.value.length ? playersResult.value : mockPlayers
+        const teamData = teamsResult.status === 'fulfilled' && teamsResult.value.length ? teamsResult.value : mockTeams
         setPlayers(playerData)
         setTeams(teamData)
+        setDemo(playersResult.status === 'rejected' || teamsResult.status === 'rejected' || playerData === mockPlayers || teamData === mockTeams)
       })
-      .catch(() => setError('Não foi possível carregar os jogadores da API.'))
+      .catch(() => setError('Não foi possível carregar os jogadores.'))
       .finally(() => setLoading(false))
   }, [])
 
@@ -76,7 +81,7 @@ export function PlayersPage() {
         eyebrow="ELENCOS ATUAIS"
         title="Jogadores"
         description="Consulte os atletas sincronizados pela ESPN com foto, posição, nacionalidade e clube atual."
-        action={<span className="source-badge"><span className="status-dot" /> Dados da ESPN</span>}
+        action={<span className="source-badge"><span className="status-dot" /> {demo ? 'Dados de demonstração' : 'Dados da ESPN'}</span>}
       />
 
       {error && <div className="error-card" role="alert"><span>{error}</span><button className="button secondary" onClick={loadPlayers}>Tentar novamente</button></div>}
