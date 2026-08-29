@@ -10,10 +10,6 @@ import { percent } from '../lib/format'
 import { getCurrentSeason, getSeasonOptions } from '../lib/season'
 import type { Prediction, Team } from '../types/api'
 
-function demoPrediction(homeId: number, awayId: number): Prediction {
-  return { home_team_id: homeId, away_team_id: awayId, home_win_probability: 0.46, draw_probability: 0.27, away_win_probability: 0.27, predicted_home_score: 1.5, predicted_away_score: 1.1, over_2_5_probability: 0.54, btts_probability: 0.59, confidence: 0.78, model_version: 'demo-1.0' }
-}
-
 export function PredictionsPage() {
   const [teams, setTeams] = useState<Team[]>([])
   const [homeId, setHomeId] = useState('')
@@ -24,6 +20,7 @@ export function PredictionsPage() {
   const [loading, setLoading] = useState(false)
   const [loadingTeams, setLoadingTeams] = useState(true)
   const [demo, setDemo] = useState(false)
+  const [predictionError, setPredictionError] = useState('')
 
   useEffect(() => {
     api.getTeams().then((teamData) => {
@@ -50,6 +47,7 @@ export function PredictionsPage() {
     if (!homeId || !awayId || homeId === awayId) return
     setLoading(true)
     setPrediction(null)
+    setPredictionError('')
     try {
       setPrediction(await api.predict({
         home_team_id: Number(homeId),
@@ -58,8 +56,7 @@ export function PredictionsPage() {
         season,
       }))
     } catch {
-      setDemo(true)
-      setPrediction(demoPrediction(Number(homeId), Number(awayId)))
+      setPredictionError('Não foi possível gerar a previsão. Verifique se existem estatísticas históricas para os dois times e tente novamente.')
     } finally {
       setLoading(false)
     }
@@ -84,11 +81,12 @@ export function PredictionsPage() {
         </form>
 
         <section className="prediction-result">
+          {predictionError && <div className="prediction-error" role="alert"><Info size={16} /><span>{predictionError}</span></div>}
           {!prediction && !loading && <div className="prediction-placeholder"><div className="placeholder-icon"><Sparkles size={25} /></div><h2>Sua análise aparecerá aqui</h2><p>Escolha os times e gere uma previsão baseada em dados históricos, xG e mando de campo.</p></div>}
           {loading && <LoadingState label="Analisando histórico..." />}
           {prediction && home && away && <>
             <div className="result-header"><div><span className="eyebrow">PREVISÃO GERADA</span><h2>{home.name} <span>vs</span> {away.name}</h2></div><span className="confidence-badge"><CheckCircle2 size={14} /> {percent(prediction.confidence)} confiança</span></div>
-            <div className="result-score"><div><TeamBadge name={home.name} shortName={home.short_name} /><strong>{prediction.predicted_home_score.toFixed(1)}</strong><span>{home.name}</span></div><span className="score-separator">—</span><div><TeamBadge name={away.name} shortName={away.short_name} color="#315fca" /><strong>{prediction.predicted_away_score.toFixed(1)}</strong><span>{away.name}</span></div></div>
+            <div className="result-score"><div><TeamBadge name={home.name} shortName={home.short_name} logo={home.logo_url} /><strong>{prediction.predicted_home_score.toFixed(1)}</strong><span>{home.name}</span></div><span className="score-separator">—</span><div><TeamBadge name={away.name} shortName={away.short_name} logo={away.logo_url} color="#315fca" /><strong>{prediction.predicted_away_score.toFixed(1)}</strong><span>{away.name}</span></div></div>
             <div className="probability-block"><div className="probability-title"><span>Probabilidade de resultado</span><small>Modelo {prediction.model_version}</small></div><div className="probability-bar"><i style={{ width: `${prediction.home_win_probability * 100}%` }} /><i style={{ width: `${prediction.draw_probability * 100}%` }} /><i style={{ width: `${prediction.away_win_probability * 100}%` }} /></div><div className="probability-legend"><span><b className="green-dot" /> Casa <strong>{percent(prediction.home_win_probability)}</strong></span><span><b className="yellow-dot" /> Empate <strong>{percent(prediction.draw_probability)}</strong></span><span><b className="blue-dot" /> Fora <strong>{percent(prediction.away_win_probability)}</strong></span></div></div>
             <div className="result-metrics"><div><span>Mais de 2.5 gols</span><strong>{percent(prediction.over_2_5_probability)}</strong></div><div><span>Ambos marcam</span><strong>{percent(prediction.btts_probability)}</strong></div><div><span>Placar provável</span><strong>{prediction.predicted_home_score.toFixed(0)} — {prediction.predicted_away_score.toFixed(0)}</strong></div></div>
           </>}

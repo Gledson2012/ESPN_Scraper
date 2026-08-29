@@ -7,7 +7,12 @@ export interface Team {
   country: Nullable<string>
   league: Nullable<string>
   stadium: Nullable<string>
+  founded?: Nullable<number>
+  website?: Nullable<string>
+  fbref_id?: Nullable<string>
   logo_url?: Nullable<string>
+  created_at?: string
+  updated_at?: string
 }
 
 export interface Player {
@@ -38,6 +43,11 @@ export interface Match {
   away_score: Nullable<number>
   home_xg?: Nullable<number>
   away_xg?: Nullable<number>
+  attendance?: Nullable<number>
+  referee?: Nullable<string>
+  fbref_id?: Nullable<string>
+  created_at?: string
+  updated_at?: string
   stats?: MatchStats[]
 }
 
@@ -51,6 +61,31 @@ export interface MatchStats {
   shots_on_target: Nullable<number>
   xg: Nullable<number>
   xg_against: Nullable<number>
+  corners?: Nullable<number>
+  fouls?: Nullable<number>
+  yellow_cards?: Nullable<number>
+  red_cards?: Nullable<number>
+  offsides?: Nullable<number>
+  passes?: Nullable<number>
+  pass_accuracy?: Nullable<number>
+  tackles?: Nullable<number>
+  interceptions?: Nullable<number>
+  saves?: Nullable<number>
+}
+
+export interface TeamSummary {
+  team_id: number
+  team_name: string
+  matches: number
+  completed_matches: number
+  wins: number
+  draws: number
+  losses: number
+  goals_for: number
+  goals_against: number
+  goal_difference: number
+  points: number
+  stats_available: number
 }
 
 export interface PredictionRequest {

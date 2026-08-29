@@ -1,5 +1,6 @@
 import { CalendarDays, MapPin } from 'lucide-react'
 import type { Match, Team } from '../types/api'
+import { isFinishedMatch, isPendingMatch, matchTimestamp } from '../lib/match'
 import { TeamBadge } from './TeamBadge'
 
 interface MatchCardProps {
@@ -10,23 +11,28 @@ interface MatchCardProps {
 
 const formatDate = (value: string | null) => {
   if (!value) return 'Data a confirmar'
-  return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(value))
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'Data a confirmar'
+  return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).format(date)
 }
 
 export function MatchCard({ match, teams, compact = false }: MatchCardProps) {
   const home = teams.find((team) => team.id === match.home_team_id)
   const away = teams.find((team) => team.id === match.away_team_id)
-  const isFinished = match.home_score !== null && match.away_score !== null
+  const isFinished = isFinishedMatch(match)
+  const isPending = isPendingMatch(match)
+  const statusClass = isFinished ? 'finished' : isPending ? 'pending' : Number.isFinite(matchTimestamp(match)) ? 'scheduled' : 'undated'
+  const statusLabel = isFinished ? 'Encerrada' : isPending ? 'Resultado pendente' : Number.isFinite(matchTimestamp(match)) ? 'Próxima' : 'Data pendente'
 
   return (
     <article className={`match-card${compact ? ' compact' : ''}`}>
       <div className="match-meta">
         <span className="competition-pill">{match.competition || 'Competição'}</span>
-        <span className={`match-status ${isFinished ? 'finished' : 'scheduled'}`}>{isFinished ? 'Encerrada' : 'Próxima'}</span>
+        <span className={`match-status ${statusClass}`}>{statusLabel}</span>
       </div>
       <div className="match-teams">
         <div className="match-team home-team">
-          <TeamBadge name={home?.name || `Time ${match.home_team_id}`} shortName={home?.short_name} />
+          <TeamBadge name={home?.name || `Time ${match.home_team_id}`} shortName={home?.short_name} logo={home?.logo_url} />
           <span>{home?.name || `Time ${match.home_team_id}`}</span>
         </div>
         <div className="match-score">
@@ -34,7 +40,7 @@ export function MatchCard({ match, teams, compact = false }: MatchCardProps) {
           {!compact && <small>{formatDate(match.match_date)}</small>}
         </div>
         <div className="match-team away-team">
-          <TeamBadge name={away?.name || `Time ${match.away_team_id}`} shortName={away?.short_name} color="#315fca" />
+          <TeamBadge name={away?.name || `Time ${match.away_team_id}`} shortName={away?.short_name} logo={away?.logo_url} color="#315fca" />
           <span>{away?.name || `Time ${match.away_team_id}`}</span>
         </div>
       </div>

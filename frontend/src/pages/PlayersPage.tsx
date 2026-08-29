@@ -1,5 +1,5 @@
 import { Search, Shield, Users } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { LoadingState } from '../components/LoadingState'
 import { PageHeader } from '../components/PageHeader'
 import { api } from '../lib/api'
@@ -32,7 +32,7 @@ function PlayerPhoto({ player }: { player: Player }) {
       ) : (
         <span>{initials(player.name)}</span>
       )}
-      {player.shirt_number !== null && <b>{player.shirt_number}</b>}
+      {player.shirt_number != null && <b>{player.shirt_number}</b>}
     </div>
   )
 }
@@ -45,7 +45,9 @@ export function PlayersPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  useEffect(() => {
+  const loadPlayers = useCallback(() => {
+    setLoading(true)
+    setError('')
     Promise.all([api.getPlayers(), api.getTeams()])
       .then(([playerData, teamData]) => {
         setPlayers(playerData)
@@ -54,6 +56,8 @@ export function PlayersPage() {
       .catch(() => setError('Não foi possível carregar os jogadores da API.'))
       .finally(() => setLoading(false))
   }, [])
+
+  useEffect(() => { loadPlayers() }, [loadPlayers])
 
   const teamNames = useMemo(() => new Map(teams.map((team) => [team.id, team.name])), [teams])
   const filteredPlayers = useMemo(() => {
@@ -75,7 +79,7 @@ export function PlayersPage() {
         action={<span className="source-badge"><span className="status-dot" /> Dados da ESPN</span>}
       />
 
-      {error && <div className="empty-card">{error}</div>}
+      {error && <div className="error-card" role="alert"><span>{error}</span><button className="button secondary" onClick={loadPlayers}>Tentar novamente</button></div>}
 
       <section className="players-summary">
         <div><span className="summary-icon green"><Users size={18} /></span><span><strong>{players.length}</strong><small>jogadores cadastrados</small></span></div>

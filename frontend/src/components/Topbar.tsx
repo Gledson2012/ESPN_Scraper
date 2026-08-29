@@ -18,11 +18,11 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
       <div className="topbar-context"><span>SCOUTLY</span><strong>Centro de inteligência</strong></div>
       <form className="topbar-search" role="search" onSubmit={handleSearch}>
         <Search size={17} />
-        <input aria-label="Buscar partidas, times ou jogadores" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar partidas, times ou jogadores" />
+        <input aria-label="Buscar partidas ou times" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar partidas ou times" />
         <kbd>⌘ K</kbd>
       </form>
       <div className="topbar-actions">
-        <button className="icon-button" aria-label="Notificações"><Bell size={18} /><span className="notification-dot" /></button>
+        <span className="icon-button" aria-label="Notificações indisponíveis" title="Notificações indisponíveis"><Bell size={18} /></span>
         <div className="profile">
           <div className="avatar">GC</div>
           <div className="profile-copy"><strong>Gledson</strong><span>Analista</span></div>

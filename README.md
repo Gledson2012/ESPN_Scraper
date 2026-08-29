@@ -432,7 +432,9 @@ O CI publica o dashboard a cada push na `main` em:
 > Requer ativar **Settings → Pages → Build and deployment → Source: GitHub Actions** (uma vez só).
 
 A URL da API consumida pelo frontend vem da variável de repositório `PUBLIC_API_URL`
-(**Settings → Secrets and variables → Actions → Variables**). Sem ela, o build usa `http://localhost:8000/api/v1`.
+(**Settings → Secrets and variables → Actions → Variables**). Ela é obrigatória para
+dados ao vivo. Sem ela, o CI publica o frontend em modo demonstração, sem tentar
+acessar `localhost`.
 
 ### API — Railway
 

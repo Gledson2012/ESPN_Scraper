@@ -1,6 +1,6 @@
 import { CalendarDays, Filter, Radio, Search, SlidersHorizontal } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { DemoNotice } from '../components/DemoNotice'
 import { LiveMatchCard } from '../components/LiveMatchCard'
 import { LoadingState } from '../components/LoadingState'
@@ -8,6 +8,7 @@ import { MatchCard } from '../components/MatchCard'
 import { PageHeader } from '../components/PageHeader'
 import { api } from '../lib/api'
 import { mockMatches, mockTeams } from '../data/mockData'
+import { isFinishedMatch, isUpcomingMatch, matchTimestamp } from '../lib/match'
 import type { LiveMatch, Match, Team } from '../types/api'
 
 export function MatchesPage() {
@@ -33,38 +34,61 @@ export function MatchesPage() {
     }).finally(() => setLoading(false))
 
     // Jogos ao vivo vêm da ESPN em tempo real; uma falha não afeta a página.
-    api.getLiveMatches().then(setLiveMatches).catch(() => setLiveMatches([]))
+    let active = true
+    const loadLiveMatches = () => api.getLiveMatches().then((liveData) => {
+      if (active) setLiveMatches(liveData)
+    }).catch(() => {
+      if (active) setLiveMatches([])
+    })
+    loadLiveMatches()
+    const refreshId = window.setInterval(loadLiveMatches, 60_000)
+    return () => { active = false; window.clearInterval(refreshId) }
   }, [])
+
+  useEffect(() => {
+    setSearch(searchParams.get('search') || '')
+  }, [searchParams])
 
   const filteredMatches = useMemo(() => matches.filter((match) => {
     const home = teams.find((team) => team.id === match.home_team_id)?.name || ''
     const away = teams.find((team) => team.id === match.away_team_id)?.name || ''
     const queryMatches = `${home} ${away} ${match.competition || ''}`.toLowerCase().includes(search.toLowerCase())
-    const isFinished = match.home_score !== null && match.away_score !== null
-    const statusMatches = filter === 'all' || (filter === 'finished' && isFinished) || (filter === 'upcoming' && !isFinished)
+    const isFinished = isFinishedMatch(match)
+    const statusMatches = filter === 'all' || (filter === 'finished' && isFinished) || (filter === 'upcoming' && isUpcomingMatch(match))
     return queryMatches && statusMatches
+  }).sort((left, right) => {
+    const leftDate = matchTimestamp(left)
+    const rightDate = matchTimestamp(right)
+    if (!Number.isFinite(leftDate)) return 1
+    if (!Number.isFinite(rightDate)) return -1
+    return rightDate - leftDate
   }), [filter, matches, search, teams])
+
+  const filteredLiveMatches = useMemo(() => {
+    const query = search.trim().toLowerCase()
+    return liveMatches.filter((match) => `${match.home_team} ${match.away_team} ${match.league}`.toLowerCase().includes(query))
+  }, [liveMatches, search])
 
   if (loading) return <LoadingState />
 
   return (
     <>
       {demo && <DemoNotice />}
-      <PageHeader eyebrow="CENTRAL DE JOGOS" title="Partidas" description="Resultados, próximos confrontos e dados históricos em um só lugar." action={<button className="button secondary"><CalendarDays size={16} /> Temporada atual</button>} />
+      <PageHeader eyebrow="CENTRAL DE JOGOS" title="Partidas" description="Resultados, próximos confrontos e dados históricos em um só lugar." action={<span className="source-badge"><CalendarDays size={15} /> Temporada atual</span>} />
       <section className="page-toolbar">
         <div className="search-field"><Search size={17} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar por time ou competição" /></div>
-        <div className="filter-tabs" role="tablist"><button className={filter === 'all' ? 'selected' : ''} onClick={() => setFilter('all')}>Todas <span>{matches.length}</span></button><button className={filter === 'live' ? 'selected' : ''} onClick={() => setFilter('live')}>Ao vivo <span>{liveMatches.length}</span></button><button className={filter === 'upcoming' ? 'selected' : ''} onClick={() => setFilter('upcoming')}>Próximas <span>{matches.filter((match) => match.home_score === null || match.away_score === null).length}</span></button><button className={filter === 'finished' ? 'selected' : ''} onClick={() => setFilter('finished')}>Encerradas <span>{matches.filter((match) => match.home_score !== null && match.away_score !== null).length}</span></button></div>
-        <button className="icon-button outline" aria-label="Mais filtros"><SlidersHorizontal size={17} /><span className="desktop-only">Filtros</span></button>
+        <div className="filter-tabs" role="tablist"><button role="tab" aria-selected={filter === 'all'} className={filter === 'all' ? 'selected' : ''} onClick={() => setFilter('all')}>Todas <span>{matches.length}</span></button><button role="tab" aria-selected={filter === 'live'} className={filter === 'live' ? 'selected' : ''} onClick={() => setFilter('live')}>Ao vivo <span>{liveMatches.length}</span></button><button role="tab" aria-selected={filter === 'upcoming'} className={filter === 'upcoming' ? 'selected' : ''} onClick={() => setFilter('upcoming')}>Próximas <span>{matches.filter((match) => isUpcomingMatch(match)).length}</span></button><button role="tab" aria-selected={filter === 'finished'} className={filter === 'finished' ? 'selected' : ''} onClick={() => setFilter('finished')}>Encerradas <span>{matches.filter(isFinishedMatch).length}</span></button></div>
+        <span className="icon-button outline disabled-control" aria-label="Filtros avançados indisponíveis" title="Filtros avançados indisponíveis"><SlidersHorizontal size={17} /><span className="desktop-only">Filtros</span></span>
       </section>
-      <div className="content-caption"><span><Filter size={14} /> {filter === 'live' ? liveMatches.length : filteredMatches.length} partidas encontradas</span><span>Ordenado por data mais recente</span></div>
+      <div className="content-caption"><span><Filter size={14} /> {filter === 'live' ? filteredLiveMatches.length : filteredMatches.length} partidas encontradas</span><span>Ordenado por data mais recente</span></div>
       {filter === 'live' ? (
         <>
-          <section className="matches-grid">{liveMatches.map((match) => <LiveMatchCard key={match.espn_event_id} match={match} />)}</section>
-          {!liveMatches.length && <div className="empty-card"><Radio size={15} /> Nenhum jogo ao vivo neste momento.</div>}
+          <section className="matches-grid">{filteredLiveMatches.map((match) => <LiveMatchCard key={match.espn_event_id} match={match} />)}</section>
+          {!filteredLiveMatches.length && <div className="empty-card"><Radio size={15} /> Nenhum jogo ao vivo corresponde à busca.</div>}
         </>
       ) : (
         <>
-          <section className="matches-grid">{filteredMatches.map((match) => <MatchCard key={match.id} match={match} teams={teams} />)}</section>
+          <section className="matches-grid">{filteredMatches.map((match) => <Link className="match-card-link" key={match.id} to={`/partidas/${match.id}`}><MatchCard match={match} teams={teams} /></Link>)}</section>
           {!filteredMatches.length && <div className="empty-card">Nenhuma partida corresponde aos filtros.</div>}
         </>
       )}

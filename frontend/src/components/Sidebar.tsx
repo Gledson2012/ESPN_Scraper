@@ -46,8 +46,8 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
         <div className="data-status">
           <span className="status-dot" />
           <div>
-            <strong>Snapshot real ativo</strong>
-            <span>5 jogos · 27 ago 2026</span>
+            <strong>Dados via API</strong>
+            <span>Fallback demo quando indisponível</span>
           </div>
         </div>
         <span className="sidebar-version">Scoutly v0.1.0</span>

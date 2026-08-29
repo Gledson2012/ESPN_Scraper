@@ -9,7 +9,8 @@ import { SectionHeading } from '../components/SectionHeading'
 import { StatCard } from '../components/StatCard'
 import { TeamBadge } from '../components/TeamBadge'
 import { loadDashboardData } from '../lib/api'
-import { formatMatchDate, formatToday } from '../lib/format'
+import { formatMatchDate, formatToday, getGreeting } from '../lib/format'
+import { isFinishedMatch, isUpcomingMatch, matchTimestamp } from '../lib/match'
 import type { DashboardData } from '../lib/api'
 
 export function DashboardPage() {
@@ -20,10 +21,11 @@ export function DashboardPage() {
   }, [])
 
   const teamById = useMemo(() => new Map(data?.teams.map((team) => [team.id, team]) ?? []), [data?.teams])
-  const upcoming = [...(data?.matches.filter((match) => match.home_score === null || match.away_score === null) ?? [])]
-    .sort((left, right) => Date.parse(left.match_date || '') - Date.parse(right.match_date || ''))
-  const finished = [...(data?.matches.filter((match) => match.home_score !== null && match.away_score !== null) ?? [])]
-    .sort((left, right) => Date.parse(right.match_date || '') - Date.parse(left.match_date || ''))
+  const upcoming = [...(data?.matches.filter((match) => isUpcomingMatch(match)) ?? [])]
+    .sort((left, right) => matchTimestamp(left) - matchTimestamp(right))
+  const finished = [...(data?.matches.filter(isFinishedMatch) ?? [])]
+    .sort((left, right) => matchTimestamp(right) - matchTimestamp(left))
+  const matchesWithMetadata = data?.matches.filter((match) => Boolean(match.match_date && match.competition)).length ?? 0
   const nextMatch = upcoming[0]
 
   if (!data) return <LoadingState label="Preparando seu painel..." />
@@ -33,7 +35,7 @@ export function DashboardPage() {
       {data.demo && <DemoNotice />}
       <PageHeader
         eyebrow={formatToday()}
-        title="Bom dia, Gledson"
+        title={`${getGreeting()}, Gledson`}
         description="Acompanhe o que está acontecendo no futebol e encontre os próximos insights."
         action={<Link className="button primary" to="/previsoes"><Sparkles size={16} /> Nova previsão</Link>}
       />
@@ -53,9 +55,9 @@ export function DashboardPage() {
               <div className="featured-match-top"><span className="eyebrow">EM DESTAQUE</span><span className="live-label"><span className="status-dot" /> {data.demo ? 'Agenda real' : 'Dados atualizados'}</span></div>
               <div className="featured-date"><CalendarDays size={15} /> {formatMatchDate(nextMatch.match_date)}</div>
               <div className="featured-teams">
-                <div className="featured-team"><TeamBadge name={teamById.get(nextMatch.home_team_id)?.name || 'Casa'} /><strong>{teamById.get(nextMatch.home_team_id)?.name || `Time ${nextMatch.home_team_id}`}</strong><span>Mandante</span></div>
+                <div className="featured-team"><TeamBadge name={teamById.get(nextMatch.home_team_id)?.name || 'Casa'} logo={teamById.get(nextMatch.home_team_id)?.logo_url} /><strong>{teamById.get(nextMatch.home_team_id)?.name || `Time ${nextMatch.home_team_id}`}</strong><span>Mandante</span></div>
                 <div className="featured-vs"><span>VS</span><small>{nextMatch.competition || 'Partida'}</small></div>
-                <div className="featured-team"><TeamBadge name={teamById.get(nextMatch.away_team_id)?.name || 'Fora'} color="#315fca" /><strong>{teamById.get(nextMatch.away_team_id)?.name || `Time ${nextMatch.away_team_id}`}</strong><span>Visitante</span></div>
+                <div className="featured-team"><TeamBadge name={teamById.get(nextMatch.away_team_id)?.name || 'Fora'} logo={teamById.get(nextMatch.away_team_id)?.logo_url} color="#315fca" /><strong>{teamById.get(nextMatch.away_team_id)?.name || `Time ${nextMatch.away_team_id}`}</strong><span>Visitante</span></div>
               </div>
               <div className="featured-footer"><span><span className="tiny-icon"><Users size={13} /></span> {nextMatch.venue || 'Local não informado'}</span><Link to="/previsoes">Ver previsão <ArrowRight size={14} /></Link></div>
             </div>
@@ -63,7 +65,7 @@ export function DashboardPage() {
 
           <SectionHeading title="Últimas partidas" description="Resultados mais recentes" to="/partidas" />
           <div className="match-list">
-            {finished.slice(0, 3).map((match) => <MatchCard key={match.id} match={match} teams={data.teams} compact />)}
+            {finished.slice(0, 3).map((match) => <Link className="match-card-link" key={match.id} to={`/partidas/${match.id}`}><MatchCard match={match} teams={data.teams} compact /></Link>)}
             {!finished.length && <div className="empty-card">Ainda não há resultados registrados.</div>}
           </div>
         </div>
@@ -71,9 +73,9 @@ export function DashboardPage() {
         <aside className="dashboard-column side-column">
           <SectionHeading title="Resumo de performance" />
           <div className="performance-card">
-            <div className="performance-card-header"><div><span className="eyebrow">STATUS DA FONTE</span><h3>Agenda atualizada</h3></div><div className="source-badge"><span className="status-dot" /> Ativa</div></div>
+            <div className="performance-card-header"><div><span className="eyebrow">STATUS DA FONTE</span><h3>{data.demo ? 'Dados de demonstração' : 'Agenda atualizada'}</h3></div><div className="source-badge"><span className="status-dot" /> {data.demo ? 'Fallback' : 'Ativa'}</div></div>
             <div className="source-summary"><Database size={17} /><div><strong>{data.demo ? 'Snapshot real disponível' : 'Banco sincronizado'}</strong><span>{data.demo ? 'Dados prontos para exploração' : 'Dados atualizados pela API'}</span></div></div>
-            <div className="progress-row"><span>Partidas com data e competição</span><strong>{data.matches.length ? '100%' : '0%'}</strong><div className="progress-track"><i style={{ width: data.matches.length ? '100%' : '0%' }} /></div></div>
+            <div className="progress-row"><span>Partidas com data e competição</span><strong>{data.matches.length ? `${Math.round((matchesWithMetadata / data.matches.length) * 100)}%` : '0%'}</strong><div className="progress-track"><i style={{ width: data.matches.length ? `${(matchesWithMetadata / data.matches.length) * 100}%` : '0%' }} /></div></div>
             <div className="progress-row"><span>Resultados já registrados</span><strong>{data.matches.length ? `${Math.round((finished.length / data.matches.length) * 100)}%` : '0%'}</strong><div className="progress-track blue"><i style={{ width: data.matches.length ? `${(finished.length / data.matches.length) * 100}%` : '0%' }} /></div></div>
             <div className="performance-divider" />
             <div className="performance-insight"><div className="insight-icon"><BarChart3 size={16} /></div><p><strong>Pronto para explorar</strong><br />Abra uma partida para consultar detalhes e gerar uma previsão.</p></div>
@@ -81,7 +83,7 @@ export function DashboardPage() {
 
           <SectionHeading title="Times em alta" to="/times" />
           <div className="trending-list">
-            {data.teams.slice(0, 4).map((team, index) => <Link className="trending-team" to="/times" key={team.id}><TeamBadge name={team.name} shortName={team.short_name} color={index % 2 ? '#315fca' : undefined} /><span><strong>{team.name}</strong><small>{team.league || 'Liga não informada'}</small></span><span className="trend-label">Na agenda</span></Link>)}
+            {data.teams.slice(0, 4).map((team, index) => <Link className="trending-team" to={`/times/${team.id}`} key={team.id}><TeamBadge name={team.name} shortName={team.short_name} logo={team.logo_url} color={index % 2 ? '#315fca' : undefined} /><span><strong>{team.name}</strong><small>{team.league || 'Liga não informada'}</small></span><span className="trend-label">Na agenda</span></Link>)}
           </div>
         </aside>
       </section>
