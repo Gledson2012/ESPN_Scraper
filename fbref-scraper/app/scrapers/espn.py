@@ -34,6 +34,17 @@ ESPN_LEAGUE_SLUGS = {
     "Liga-MX": "mex.1",
     "Libertadores": "conmebol.libertadores",
     "Champions-League": "uefa.champions",
+    "Serie-B": "bra.2",
+    "Copa-do-Brasil": "bra.copa_do_brazil",
+    "Liga-Argentina": "arg.1",
+    "Sudamericana": "conmebol.sudamericana",
+    "World-Cup": "fifa.world",
+    "Championship": "eng.2",
+    "Europa-League": "uefa.europa",
+    "Conference-League": "uefa.europa.conf",
+    "Copa-del-Rey": "esp.copa_del_rey",
+    "Coppa-Italia": "ita.coppa_italia",
+    "DFB-Pokal": "ger.dfb_pokal",
 }
 
 ESPN_LEAGUE_COUNTRIES = {
@@ -51,6 +62,17 @@ ESPN_LEAGUE_COUNTRIES = {
     "Liga-MX": "Mexico",
     "Libertadores": "South America",
     "Champions-League": "Europe",
+    "Serie-B": "Brazil",
+    "Copa-do-Brasil": "Brazil",
+    "Liga-Argentina": "Argentina",
+    "Sudamericana": "South America",
+    "World-Cup": "International",
+    "Championship": "England",
+    "Europa-League": "Europe",
+    "Conference-League": "Europe",
+    "Copa-del-Rey": "Spain",
+    "Coppa-Italia": "Italy",
+    "DFB-Pokal": "Germany",
 }
 
 # Permite que estatísticas consultadas logo após a sincronização encontrem a

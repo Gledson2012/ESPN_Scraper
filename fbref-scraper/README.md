@@ -314,6 +314,17 @@ O scraper suporta as seguintes ligas (mapeadas automaticamente para os códigos 
 | Liga-MX | `mex.1` |
 | Libertadores | `conmebol.libertadores` |
 | Champions-League | `uefa.champions` |
+| Serie-B (Brasil) | `bra.2` |
+| Copa-do-Brasil | `bra.copa_do_brazil` |
+| Liga-Argentina | `arg.1` |
+| Sudamericana | `conmebol.sudamericana` |
+| World-Cup | `fifa.world` |
+| Championship | `eng.2` |
+| Europa-League | `uefa.europa` |
+| Conference-League | `uefa.europa.conf` |
+| Copa-del-Rey | `esp.copa_del_rey` |
+| Coppa-Italia | `ita.coppa_italia` |
+| DFB-Pokal | `ger.dfb_pokal` |
 
 ## ⚠️ Aviso Legal
 

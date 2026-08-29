@@ -272,6 +272,17 @@ def delete_team(team_id: int, db: Session = Depends(get_db)):
     - `Liga-MX`
     - `Libertadores`
     - `Champions-League`
+    - `Serie-B` (Brasileirão Série B)
+    - `Copa-do-Brasil`
+    - `Liga-Argentina`
+    - `Sudamericana`
+    - `World-Cup`
+    - `Championship`
+    - `Europa-League`
+    - `Conference-League`
+    - `Copa-del-Rey`
+    - `Coppa-Italia`
+    - `DFB-Pokal`
     """,
 )
 def scrape_teams(

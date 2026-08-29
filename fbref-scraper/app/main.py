@@ -95,6 +95,17 @@ API para **dados de futebol da ESPN**, geração de **previsões de partidas** u
 | Liga MX | `Liga-MX` |
 | Libertadores | `Libertadores` |
 | Champions League | `Champions-League` |
+| Série B (Brasil) | `Serie-B` |
+| Copa do Brasil | `Copa-do-Brasil` |
+| Liga Argentina | `Liga-Argentina` |
+| Sudamericana | `Sudamericana` |
+| Copa do Mundo | `World-Cup` |
+| Championship | `Championship` |
+| Europa League | `Europa-League` |
+| Conference League | `Conference-League` |
+| Copa del Rey | `Copa-del-Rey` |
+| Coppa Italia | `Coppa-Italia` |
+| DFB-Pokal | `DFB-Pokal` |
 
 ---
 

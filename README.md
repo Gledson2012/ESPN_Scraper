@@ -243,8 +243,19 @@ curl -X POST "http://localhost:8000/api/v1/predictions/" \
 | 🇲🇽 Liga MX | `mex.1` |
 | 🌎 Libertadores | `conmebol.libertadores` |
 | 🌍 Champions League | `uefa.champions` |
+| 🇧🇷 Brasileirão Série B | `bra.2` |
+| 🇧🇷 Copa do Brasil | `bra.copa_do_brazil` |
+| 🇦🇷 Liga Argentina | `arg.1` |
+| 🌎 Sudamericana | `conmebol.sudamericana` |
+| 🏆 Copa do Mundo | `fifa.world` |
+| 🏴 Championship | `eng.2` |
+| 🌍 Europa League | `uefa.europa` |
+| 🌍 Conference League | `uefa.europa.conf` |
+| 🇪🇸 Copa del Rey | `esp.copa_del_rey` |
+| 🇮🇹 Coppa Italia | `ita.coppa_italia` |
+| 🇩🇪 DFB-Pokal | `ger.dfb_pokal` |
 
-> O **Código API** é o valor usado na query string dos endpoints de sincronização. Os dados são obtidos pelos endpoints JSON públicos da ESPN. Se `season` for omitida, a API calcula a temporada vigente: ano civil para Brasileirão/Libertadores/MLS e `AAAA-AAAA` para as demais competições.
+> O **Código API** é o valor usado na query string dos endpoints de sincronização. Os dados são obtidos pelos endpoints JSON públicos da ESPN. Se `season` for omitida, a API calcula a temporada vigente: ano civil para Brasileirão, Série B, Copa do Brasil, Libertadores, Sudamericana, MLS, Liga Argentina e Copa do Mundo; `AAAA-AAAA` para as demais competições.
 
 ---
 

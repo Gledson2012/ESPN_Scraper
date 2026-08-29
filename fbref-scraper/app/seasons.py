@@ -11,8 +11,13 @@ CALENDAR_YEAR_LEAGUES = frozenset(
         "brasileirao-serie-a",
         "serie a",
         "brasileirão série a",
+        "serie-b",
+        "copa-do-brasil",
+        "liga-argentina",
         "libertadores",
+        "sudamericana",
         "mls",
+        "world-cup",
     }
 )
 

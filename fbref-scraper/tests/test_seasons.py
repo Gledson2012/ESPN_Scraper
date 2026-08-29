@@ -13,6 +13,11 @@ def test_current_season_uses_calendar_year_for_brazilian_competitions():
     assert current_season("Serie-A", reference_date) == "2026"
     assert current_season("Libertadores", reference_date) == "2026"
     assert current_season("MLS", reference_date) == "2026"
+    assert current_season("Serie-B", reference_date) == "2026"
+    assert current_season("Copa-do-Brasil", reference_date) == "2026"
+    assert current_season("Liga-Argentina", reference_date) == "2026"
+    assert current_season("Sudamericana", reference_date) == "2026"
+    assert current_season("World-Cup", reference_date) == "2026"
 
 
 def test_current_season_uses_cross_year_format_for_european_competitions():

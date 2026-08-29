@@ -42,6 +42,17 @@ def test_other_leagues():
     assert _resolve_teams("Liga-MX") == "mex.1"
     assert _resolve_teams("Libertadores") == "conmebol.libertadores"
     assert _resolve_teams("Champions-League") == "uefa.champions"
+    assert _resolve_teams("Serie-B") == "bra.2"
+    assert _resolve_teams("Copa-do-Brasil") == "bra.copa_do_brazil"
+    assert _resolve_teams("Liga-Argentina") == "arg.1"
+    assert _resolve_teams("Sudamericana") == "conmebol.sudamericana"
+    assert _resolve_teams("World-Cup") == "fifa.world"
+    assert _resolve_teams("Championship") == "eng.2"
+    assert _resolve_teams("Europa-League") == "uefa.europa"
+    assert _resolve_teams("Conference-League") == "uefa.europa.conf"
+    assert _resolve_teams("Copa-del-Rey") == "esp.copa_del_rey"
+    assert _resolve_teams("Coppa-Italia") == "ita.coppa_italia"
+    assert _resolve_teams("DFB-Pokal") == "ger.dfb_pokal"
 
 
 def test_unknown_league_is_rejected():
