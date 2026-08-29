@@ -421,6 +421,37 @@ Contribuições são bem-vindas! Siga estes passos:
 
 ---
 
+## 🚀 Deploy em Produção
+
+### Frontend — GitHub Pages (automático)
+
+O CI publica o dashboard a cada push na `main` em:
+
+**https://gledson2012.github.io/FBref-Scraper/**
+
+> Requer ativar **Settings → Pages → Build and deployment → Source: GitHub Actions** (uma vez só).
+
+A URL da API consumida pelo frontend vem da variável de repositório `PUBLIC_API_URL`
+(**Settings → Secrets and variables → Actions → Variables**). Sem ela, o build usa `http://localhost:8000/api/v1`.
+
+### API — Railway
+
+O repositório já inclui [`railway.json`](railway.json) (builder Dockerfile, healthcheck em `/health`).
+
+1. Crie um projeto em **https://railway.app/new** → *Deploy from GitHub repo* → `FBref-Scraper`
+2. No projeto, adicione os plugins: **PostgreSQL** e **Redis**
+3. No serviço da API, configure as variáveis:
+   | Variável | Valor |
+   |---|---|
+   | `DATABASE_URL` | referência `${{Postgres.DATABASE_URL}}` do plugin |
+   | `REDIS_URL` | referência `${{Redis.REDIS_URL}}` do plugin |
+   | `API_KEY` | chave forte (scraping/escrita) |
+   | `CORS_ORIGINS` | `https://gledson2012.github.io` |
+4. Gere a URL pública (**Settings → Networking → Generate Domain**)
+5. Volte ao GitHub e crie a variável `PUBLIC_API_URL` com essa URL (passo do frontend acima)
+
+A imagem Docker também é publicada automaticamente em `ghcr.io/gledson2012/fbref-scraper` pelo job `build` do CI.
+
 ## 📄 Licença
 
 Este projeto está licenciado sob a licença **MIT**. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
