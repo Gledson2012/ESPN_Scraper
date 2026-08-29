@@ -1,0 +1,29 @@
+# Render Blueprints — deploy 100% gratuito da API.
+# Documentação: https://docs.render.com/blueprint-spec
+#
+# O Postgres usado deve ser externo e gratuito (ex.: Neon — https://neon.tech);
+# informe a connection string no campo DATABASE_URL ao aplicar este blueprint.
+services:
+  - type: web
+    name: fbref-api
+    runtime: docker
+    dockerfilePath: ./fbref-scraper/Dockerfile
+    dockerContext: ./fbref-scraper
+    plan: free
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: DATABASE_URL
+        sync: false   # preencha com a URL do Neon/Supabase ao criar o serviço
+      - key: REDIS_URL
+        sync: false   # opcional; vazio = rate limit em memória (suficiente no free tier)
+      - key: API_KEY
+        generateValue: true
+      - key: CORS_ORIGINS
+        value: https://gledson2012.github.io
+      - key: CLOUDBET_API_KEY
+        sync: false
+      - key: ALLOW_UNAUTHENTICATED_SCRAPING
+        value: "false"
+      - key: ALLOW_UNAUTHENTICATED_WRITES
+        value: "false"

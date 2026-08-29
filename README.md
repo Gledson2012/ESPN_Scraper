@@ -452,6 +452,24 @@ O repositório já inclui [`railway.json`](railway.json) (builder Dockerfile, he
 
 A imagem Docker também é publicada automaticamente em `ghcr.io/gledson2012/fbref-scraper` pelo job `build` do CI.
 
+### API — Opção 100% gratuita (Render + Neon)
+
+O repositório inclui [`render.yaml`](render.yaml) (blueprint do Render). Sem cartão de crédito:
+
+1. Crie um Postgres gratuito em **https://neon.tech** (0,5 GB, não expira) e copie a connection string
+2. Em **https://dashboard.render.com** → *New → Blueprint* → selecione este repositório
+   (ou *New → Web Service* com o Dockerfile `fbref-scraper/Dockerfile`)
+3. No campo `DATABASE_URL`, cole a URL do Neon (adicione `?sslmode=require` se necessário)
+   - `REDIS_URL` pode ficar vazia: o rate limit funciona em memória
+   - `API_KEY` é gerada automaticamente pelo Render (copie depois para usar nos scrapes)
+4. Após o deploy, copie a URL pública (`https://fbref-api-xxxx.onrender.com`) e crie a
+   variável `PUBLIC_API_URL` no GitHub (passo do frontend acima)
+
+> **Custos x limites do free tier:** tudo gratuito. A API "adormece" após ~15 min sem
+> uso e leva ~1 min para responder na primeira requisição. Evite sincronizações muito
+> longas de uma vez (scrape liga por liga funciona bem). O Postgres do Neon suspende
+> automaticamente e reacorda sozinho.
+
 ## 📄 Licença
 
 Este projeto está licenciado sob a licença **MIT**. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
