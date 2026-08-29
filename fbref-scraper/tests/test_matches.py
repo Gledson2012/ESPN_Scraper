@@ -1,5 +1,7 @@
 import pytest
 
+from app.api import matches as matches_api
+
 
 def test_create_match(client, sample_match_data):
     match_data, _, _ = sample_match_data
@@ -95,3 +97,57 @@ def test_create_match_rejects_same_team(client, sample_team_data):
         json={"home_team_id": team["id"], "away_team_id": team["id"]},
     )
     assert response.status_code == 422
+
+
+FAKE_LIVE_MATCH = {
+    "league": "Serie-A",
+    "espn_event_id": "401882899",
+    "status": "2nd Half",
+    "clock": "67' - 2nd Half",
+    "match_date": "2026-08-29T18:30:00",
+    "venue": "Maracanã",
+    "home_team": "Flamengo",
+    "away_team": "Palmeiras",
+    "home_score": 1,
+    "away_score": 0,
+    "home_team_logo": None,
+    "away_team_logo": None,
+}
+
+
+def test_list_live_matches_returns_espn_data(client, monkeypatch):
+    monkeypatch.setattr(
+        matches_api.MatchesScraper,
+        "get_live_matches",
+        lambda self, league: [FAKE_LIVE_MATCH] if league == "Serie-A" else [],
+    )
+
+    response = client.get("/api/v1/matches/live", params={"league": "Serie-A"})
+
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["espn_event_id"] == "401882899"
+    assert data[0]["home_team"] == "Flamengo"
+    assert data[0]["home_score"] == 1
+    assert data[0]["status"] == "2nd Half"
+
+
+def test_list_live_matches_rejects_unknown_league(client):
+    response = client.get("/api/v1/matches/live", params={"league": "Liga-Inexistente"})
+
+    assert response.status_code == 422
+    assert "não suportada" in response.json()["detail"].lower()
+
+
+def test_list_live_matches_handles_espn_outage(client, monkeypatch):
+    import requests
+
+    def boom(self, league):
+        raise requests.exceptions.ConnectionError("ESPN indisponível")
+
+    monkeypatch.setattr(matches_api.MatchesScraper, "get_live_matches", boom)
+
+    response = client.get("/api/v1/matches/live", params={"league": "Serie-A"})
+
+    assert response.status_code == 502

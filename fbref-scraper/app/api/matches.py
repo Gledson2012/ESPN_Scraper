@@ -7,10 +7,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.api.security import require_api_key, require_write_api_key, scrape_rate_limiter
+from app.api.security import require_api_key, require_write_api_key, scrape_rate_limiter, public_rate_limiter
 from app.database import get_db
 from app.models import Match, MatchStats, Team
-from app.schemas import MatchCreate, MatchStatsResponse, MatchUpdate, MatchResponse
+from app.schemas import MatchCreate, MatchStatsResponse, MatchUpdate, MatchResponse, LiveMatchResponse
+from app.scrapers.espn import ESPN_LEAGUE_SLUGS, MatchesScraper
 from app.seasons import current_season, resolve_season
 from app.services.fbref import FBrefService
 
@@ -65,6 +66,54 @@ def list_matches(
         query = query.filter(Match.match_date <= date_to)
 
     return query.order_by(Match.match_date.desc()).offset(skip).limit(limit).all()
+
+
+@router.get(
+    "/live",
+    response_model=List[LiveMatchResponse],
+    dependencies=[Depends(public_rate_limiter)],
+    summary="Partidas ao vivo (tempo real da ESPN)",
+    description="""
+    Retorna as partidas que estão em andamento agora, consultadas em tempo
+    real no scoreboard da ESPN (sem usar o banco de dados).
+
+    - `league`: opcional; filtra por uma liga (ex: `Serie-A`). Se omitida,
+      consulta todas as 25 ligas suportadas.
+
+    **Ligas suportadas:** as mesmas do endpoint de scraping (`Serie-A`,
+    `Premier-League`, `La-Liga`, `Bundesliga`, `Libertadores`, `Champions-League`,
+    `Serie-B`, `Copa-do-Brasil`, entre outras — veja a tabela de ligas).
+    """,
+)
+def list_live_matches(
+    league: Optional[str] = Query(
+        None,
+        description="Código da liga; omita para consultar todas as ligas suportadas",
+        examples=["Serie-A"],
+    ),
+):
+    """Lista as partidas em andamento consultando a ESPN em tempo real."""
+    scraper = MatchesScraper()
+    try:
+        if league:
+            return scraper.get_live_matches(league)
+
+        results: List[LiveMatchResponse] = []
+        seen_slugs = set()
+        for league_name, slug in ESPN_LEAGUE_SLUGS.items():
+            if slug in seen_slugs:
+                continue  # ignora aliases da mesma competição (ex: Serie A / Serie-A)
+            seen_slugs.add(slug)
+            results.extend(scraper.get_live_matches(league_name))
+        return results
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except requests.exceptions.RequestException as e:
+        logger.warning(f"Falha ao acessar a ESPN (jogos ao vivo): {e}")
+        raise HTTPException(
+            status_code=502,
+            detail="Não foi possível acessar a ESPN (falha de rede ou limite temporário). Tente novamente mais tarde.",
+        )
 
 
 @router.get(

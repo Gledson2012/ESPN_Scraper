@@ -100,3 +100,20 @@ class MatchResponse(MatchBase):
     created_at: datetime = Field(..., description="Data de criação do registro")
     updated_at: datetime = Field(..., description="Data da última atualização")
     stats: List[MatchStatsResponse] = Field(default_factory=list, description="Estatísticas da partida")
+
+
+class LiveMatchResponse(BaseModel):
+    """Partida em andamento, consultada em tempo real na ESPN."""
+
+    league: str = Field(..., description="Liga na nomenclatura da API", examples=["Serie-A"])
+    espn_event_id: str = Field(..., description="ID do evento na ESPN", examples=["401882899"])
+    status: str = Field(..., description="Situação da partida", examples=["2nd Half"])
+    clock: Optional[str] = Field(None, description="Tempo decorrido exibido pela ESPN", examples=["67' - 2nd Half"])
+    match_date: Optional[datetime] = Field(None, description="Data/hora de início da partida")
+    venue: Optional[str] = Field(None, description="Estádio da partida", examples=["Anfield"])
+    home_team: str = Field(..., description="Nome do time da casa", examples=["Liverpool"])
+    away_team: str = Field(..., description="Nome do time visitante", examples=["Everton"])
+    home_score: Optional[int] = Field(None, ge=0, description="Gols do time da casa", examples=[1])
+    away_score: Optional[int] = Field(None, ge=0, description="Gols do time visitante", examples=[0])
+    home_team_logo: Optional[str] = Field(None, description="URL do escudo do time da casa")
+    away_team_logo: Optional[str] = Field(None, description="URL do escudo do time visitante")

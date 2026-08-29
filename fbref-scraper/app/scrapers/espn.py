@@ -172,14 +172,14 @@ class ESPNClient:
     def __init__(self):
         self.session = requests.Session()
 
-    def _get_json(self, path: str, params: Optional[dict] = None) -> dict:
+    def _get_json(self, path: str, params: Optional[dict] = None, apply_delay: bool = True) -> dict:
         response = self.session.get(
             f"{self.BASE_URL}/{path.lstrip('/')}",
             params=params,
             timeout=settings.REQUEST_TIMEOUT,
         )
         response.raise_for_status()
-        if settings.REQUEST_DELAY:
+        if apply_delay and settings.REQUEST_DELAY:
             time.sleep(settings.REQUEST_DELAY)
         payload = response.json()
         if not isinstance(payload, dict):
@@ -355,6 +355,58 @@ class MatchesScraper(ESPNClient):
 
         logger.info("Encontradas %s partidas da ESPN para %s %s", len(matches), league, season)
         return matches
+
+    def get_live_matches(self, league: str) -> List[dict]:
+        """Retorna as partidas em andamento de uma liga neste momento.
+
+        Consulta o scoreboard do dia na ESPN e mantém somente eventos com
+        estado ``in`` (jogo em progresso). Não usa o atraso entre requisições
+        porque consulta apenas o scoreboard atual.
+        """
+        league_slug = resolve_espn_league(league)
+        payload = self._get_json(f"{league_slug}/scoreboard", {"limit": 400}, apply_delay=False)
+        live: List[dict] = []
+
+        for event in payload.get("events", []):
+            status_type = ((event.get("status") or {}).get("type") or {})
+            if status_type.get("state") != "in":
+                continue
+
+            competition = (event.get("competitions") or [{}])[0]
+            competitors = competition.get("competitors", [])
+            home = next((item for item in competitors if item.get("homeAway") == "home"), None)
+            away = next((item for item in competitors if item.get("homeAway") == "away"), None)
+            if not home or not away:
+                continue
+
+            event_id = str(event.get("id"))
+            ESPN_EVENT_LEAGUES[event_id] = league_slug
+            status = (
+                status_type.get("shortDetail")
+                or status_type.get("detail")
+                or "Ao vivo"
+            )
+
+            live.append(
+                {
+                    "league": league,
+                    "espn_event_id": event_id,
+                    "status": status,
+                    "clock": status_type.get("displayClock") or status,
+                    "match_date": _parse_datetime(event.get("date") or competition.get("date")),
+                    "venue": (competition.get("venue") or {}).get("fullName"),
+                    "home_team": (home.get("team") or {}).get("displayName"),
+                    "away_team": (away.get("team") or {}).get("displayName"),
+                    "home_score": _safe_int(home.get("score")),
+                    "away_score": _safe_int(away.get("score")),
+                    "home_team_logo": _team_logo(home.get("team") or {}),
+                    "away_team_logo": _team_logo(away.get("team") or {}),
+                }
+            )
+
+        if live:
+            logger.info("Encontradas %s partidas ao vivo na ESPN para %s", len(live), league)
+        return live
 
     def _get_event_summary(self, event_id: str) -> dict:
         preferred = ESPN_EVENT_LEAGUES.get(str(event_id))

@@ -190,6 +190,7 @@ curl -X POST "http://localhost:8000/api/v1/predictions/" \
 | Método | Endpoint | Descrição |
 |--------|----------|-----------|
 | `GET` | `/matches/` | Lista partidas (com filtros) |
+| `GET` | `/matches/live` | Partidas ao vivo em tempo real (ESPN) |
 | `GET` | `/matches/{id}` | Obtém uma partida pelo ID |
 | `POST` | `/matches/` | Cria uma partida |
 | `PUT` | `/matches/{id}` | Atualiza uma partida |

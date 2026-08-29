@@ -90,6 +90,7 @@ uvicorn app.main:app --reload
 | Método | Endpoint | Descrição |
 |--------|----------|-----------|
 | GET | `/api/v1/matches/` | Lista partidas (com filtros) |
+| GET | `/api/v1/matches/live?league=Serie-A` | Jogos ao vivo em tempo real (ESPN) |
 | GET | `/api/v1/matches/{id}` | Obtém uma partida |
 | POST | `/api/v1/matches/` | Cria uma partida |
 | PUT | `/api/v1/matches/{id}` | Atualiza uma partida |
