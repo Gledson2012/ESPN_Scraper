@@ -1,6 +1,6 @@
 # Scoutly — frontend
 
-Painel React para consumir a API do FBref Scraper.
+Painel React para consumir a API do ESPN Scraper.
 
 ## Executar
 
@@ -31,7 +31,7 @@ O modo demonstração usa um snapshot local de jogos reais quando algum endpoint
 está vazio ou não responde. Isso permite desenvolver a interface sem expor
 `API_KEY` no navegador; essa chave deve permanecer somente no backend.
 
-Para substituir o snapshot por dados reais atualizados do FBref, execute na
+Para substituir o snapshot por dados reais atualizados da ESPN, execute na
 pasta da API:
 
 ```bash

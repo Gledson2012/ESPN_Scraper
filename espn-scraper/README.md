@@ -180,7 +180,7 @@ uvicorn app.main:app --reload
 ## 🏗️ Estrutura do Projeto
 
 ```
-fbref-scraper/
+espn-scraper/
 ├── alembic/                 # Migrações de banco de dados (Alembic)
 │   ├── env.py
 │   └── versions/

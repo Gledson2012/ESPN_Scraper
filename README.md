@@ -9,7 +9,7 @@
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)
-![CI/CD](https://github.com/Gledson2012/FBref-Scraper/actions/workflows/ci.yml/badge.svg)
+![CI/CD](https://github.com/Gledson2012/ESPN-Scraper/actions/workflows/ci.yml/badge.svg)
 
 [🚀 Início Rápido](#-início-rápido) • [📚 Endpoints](#-endpoints) • [🏆 Ligas Suportadas](#-ligas-suportadas) • [🛠️ Tecnologias](#️-tecnologias) • [📖 Documentação](#-documentação)
 
@@ -46,8 +46,8 @@ Esta API coleta dados de futebol da **ESPN**, gera **previsões de partidas** us
 
 ```bash
 # Clone o repositório
-git clone https://github.com/Gledson2012/FBref-Scraper.git
-cd FBref-Scraper/fbref-scraper
+git clone https://github.com/Gledson2012/ESPN-Scraper.git
+cd ESPN-Scraper/espn-scraper
 
 # Configure credenciais locais (substitua os valores do arquivo)
 cp .env.example .env
@@ -68,7 +68,7 @@ docker compose exec api python scripts/sync_real_matches.py --league Serie-A --i
 Com a API em execução, abra outro terminal:
 
 ```bash
-cd FBref-Scraper/frontend
+cd ESPN-Scraper/frontend
 npm install
 cp .env.example .env
 npm run dev
@@ -82,8 +82,8 @@ necessário.
 
 ```bash
 # Clone o repositório
-git clone https://github.com/Gledson2012/FBref-Scraper.git
-cd FBref-Scraper/fbref-scraper
+git clone https://github.com/Gledson2012/ESPN-Scraper.git
+cd ESPN-Scraper/espn-scraper
 
 # Crie um ambiente virtual
 python -m venv venv
@@ -278,8 +278,8 @@ curl -X POST "http://localhost:8000/api/v1/predictions/" \
 ## 📁 Estrutura do Projeto
 
 ```
-FBref-Scraper/
-├── fbref-scraper/           # API principal
+ESPN-Scraper/
+├── espn-scraper/           # API principal
 │   ├── app/
 │   │   ├── api/             # Rotas da API
 │   │   │   ├── teams.py     # Endpoints de times
@@ -312,7 +312,7 @@ FBref-Scraper/
 ## 🧪 Testes
 
 ```bash
-cd fbref-scraper
+cd espn-scraper
 
 # Executar todos os testes
 pytest
@@ -381,7 +381,7 @@ curl -X POST "http://localhost:8000/api/v1/teams/scrape?league=Serie-A" \
 O schema é versionado com [Alembic](https://alembic.sqlalchemy.org/):
 
 ```bash
-cd fbref-scraper
+cd espn-scraper
 
 # Aplicar migrações (cria as tabelas)
 poetry run alembic upgrade head
@@ -427,7 +427,7 @@ Contribuições são bem-vindas! Siga estes passos:
 
 O CI publica o dashboard a cada push na `main` em:
 
-**https://gledson2012.github.io/FBref-Scraper/**
+**https://gledson2012.github.io/ESPN-Scraper/**
 
 > Requer ativar **Settings → Pages → Build and deployment → Source: GitHub Actions** (uma vez só).
 
@@ -438,7 +438,7 @@ A URL da API consumida pelo frontend vem da variável de repositório `PUBLIC_AP
 
 O repositório já inclui [`railway.json`](railway.json) (builder Dockerfile, healthcheck em `/health`).
 
-1. Crie um projeto em **https://railway.app/new** → *Deploy from GitHub repo* → `FBref-Scraper`
+1. Crie um projeto em **https://railway.app/new** → *Deploy from GitHub repo* → `ESPN-Scraper`
 2. No projeto, adicione os plugins: **PostgreSQL** e **Redis**
 3. No serviço da API, configure as variáveis:
    | Variável | Valor |
@@ -450,7 +450,7 @@ O repositório já inclui [`railway.json`](railway.json) (builder Dockerfile, he
 4. Gere a URL pública (**Settings → Networking → Generate Domain**)
 5. Volte ao GitHub e crie a variável `PUBLIC_API_URL` com essa URL (passo do frontend acima)
 
-A imagem Docker também é publicada automaticamente em `ghcr.io/gledson2012/fbref-scraper` pelo job `build` do CI.
+A imagem Docker também é publicada automaticamente em `ghcr.io/gledson2012/espn-scraper` pelo job `build` do CI.
 
 ### API — Opção 100% gratuita (Render + Neon)
 
@@ -458,7 +458,7 @@ O repositório inclui [`render.yaml`](render.yaml) (blueprint do Render). Sem ca
 
 1. Crie um Postgres gratuito em **https://neon.tech** (0,5 GB, não expira) e copie a connection string
 2. Em **https://dashboard.render.com** → *New → Blueprint* → selecione este repositório
-   (ou *New → Web Service* com o Dockerfile `fbref-scraper/Dockerfile`)
+   (ou *New → Web Service* com o Dockerfile `espn-scraper/Dockerfile`)
 3. No campo `DATABASE_URL`, cole a URL do Neon (adicione `?sslmode=require` se necessário)
    - `REDIS_URL` pode ficar vazia: o rate limit funciona em memória
    - `API_KEY` é gerada automaticamente pelo Render (copie depois para usar nos scrapes)

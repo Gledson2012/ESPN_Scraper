@@ -27,8 +27,8 @@ dependencies = [
 ]
 
 [tool.poetry]
-# O pacote real da aplicação é o módulo `app` em fbref-scraper/
-packages = [{include = "app", from = "fbref-scraper"}]
+# O pacote real da aplicação é o módulo `app` em espn-scraper/
+packages = [{include = "app", from = "espn-scraper"}]
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

@@ -1,6 +1,6 @@
-"""Cache em disco (best-effort) para as respostas HTML dos scrapers do FBref.
+"""Cache em disco (best-effort) para as respostas dos scrapers da ESPN.
 
-Evita re-requisições ao FBref quando o mesmo URL já foi coletado dentro do TTL
+Evita re-requisições quando o mesmo URL já foi coletado dentro do TTL
 (``CACHE_TTL_SECONDS``). Desativável via ``CACHE_ENABLED=false``.
 O diretório padrão é o diretório temporário do sistema; configure ``CACHE_DIR``
 para persistir entre execuções (ex: um volume no Docker).
@@ -28,7 +28,7 @@ def _cache_dir() -> Path:
     base = (
         Path(settings.CACHE_DIR)
         if settings.CACHE_DIR
-        else Path(tempfile.gettempdir()) / "fbref-scraper-cache"
+        else Path(tempfile.gettempdir()) / "espn-scraper-cache"
     )
     base.mkdir(parents=True, exist_ok=True)
     return base

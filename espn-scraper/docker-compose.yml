@@ -1,7 +1,7 @@
 services:
   db:
     image: postgres:16-alpine
-    container_name: fbref_db
+    container_name: espn_db
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no arquivo .env}"
@@ -19,7 +19,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: fbref_redis
+    container_name: espn_redis
     # Sem mapeamento de portas: o Redis é usado apenas internamente pela API
     volumes:
       - redis_data:/data
@@ -31,7 +31,7 @@ services:
 
   api:
     build: .
-    container_name: fbref_api
+    container_name: espn_api
     depends_on:
       db:
         condition: service_healthy
