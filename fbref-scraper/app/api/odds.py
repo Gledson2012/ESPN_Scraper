@@ -1,7 +1,8 @@
 import logging
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import Optional, List
+from app.api.security import public_rate_limiter
 from app.services.cloudbet import CloudbetService
 from app.schemas.odds import EventOdds, MatchOddsResponse, SoccerOddsResponse
 
@@ -17,6 +18,7 @@ def _cloudbet_error(operation: str) -> HTTPException:
 
 @router.get(
     "/sports",
+    dependencies=[Depends(public_rate_limiter)],
     summary="Listar esportes disponíveis",
     description="Obtém a lista de esportes disponíveis na Cloudbet.",
 )
@@ -30,6 +32,7 @@ async def get_sports():
 
 @router.get(
     "/competitions",
+    dependencies=[Depends(public_rate_limiter)],
     summary="Listar competições de futebol",
     description="Obtém as competições de futebol disponíveis na Cloudbet.",
 )
@@ -43,6 +46,7 @@ async def get_competitions(sport_key: str = Query("soccer", description="Chave d
 
 @router.get(
     "/competition/{competition_key}/events",
+    dependencies=[Depends(public_rate_limiter)],
     summary="Eventos de uma competição",
     description="Obtém os eventos de uma competição específica com odds.",
 )
@@ -63,6 +67,7 @@ async def get_competition_events(
 @router.get(
     "/soccer",
     response_model=SoccerOddsResponse,
+    dependencies=[Depends(public_rate_limiter)],
     summary="Odds de futebol",
     description="""
     Obtém odds de partidas de futebol da Cloudbet.
@@ -103,6 +108,7 @@ async def get_soccer_odds(
 @router.get(
     "/match",
     response_model=MatchOddsResponse,
+    dependencies=[Depends(public_rate_limiter)],
     summary="Odds de uma partida específica",
     description="Busca odds para uma partida específica entre dois times.",
 )
@@ -134,6 +140,7 @@ async def get_match_odds(
 
 @router.get(
     "/event/{event_id}",
+    dependencies=[Depends(public_rate_limiter)],
     summary="Odds de um evento específico",
     description="Obtém odds de um evento específico pelo seu ID.",
 )
@@ -147,6 +154,7 @@ async def get_event_odds(event_id: str):
 
 @router.get(
     "/event/{event_id}/markets",
+    dependencies=[Depends(public_rate_limiter)],
     summary="Mercados de um evento",
     description="Obtém os mercados de apostas de um evento específico.",
 )

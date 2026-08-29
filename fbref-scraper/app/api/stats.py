@@ -5,6 +5,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.api.security import require_write_api_key
 from app.models import Match, MatchStats, Team
 from app.schemas import MatchStatsCreate, MatchStatsResponse, MatchStatsUpdate
 
@@ -79,6 +80,7 @@ def get_stat(stat_id: int = Path(..., gt=0, description="ID da estatística"), d
     "/",
     response_model=MatchStatsResponse,
     status_code=201,
+    dependencies=[Depends(require_write_api_key)],
     summary="Criar estatísticas",
     description="Cria estatísticas para um dos times de uma partida.",
 )
@@ -105,6 +107,7 @@ def create_stat(stat: MatchStatsCreate, db: Session = Depends(get_db)):
 @router.put(
     "/{stat_id}",
     response_model=MatchStatsResponse,
+    dependencies=[Depends(require_write_api_key)],
     summary="Atualizar estatísticas",
     description="Atualiza os números de um registro de estatísticas existente.",
 )
@@ -138,6 +141,7 @@ def update_stat(
 @router.delete(
     "/{stat_id}",
     status_code=204,
+    dependencies=[Depends(require_write_api_key)],
     summary="Excluir estatísticas",
     description="Exclui um registro de estatísticas.",
 )

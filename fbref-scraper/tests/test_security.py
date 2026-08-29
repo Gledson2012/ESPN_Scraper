@@ -7,6 +7,7 @@ from fastapi import HTTPException
 
 from app.api.security import (
     require_api_key,
+    require_write_api_key,
     RedisSlidingWindowRateLimiter,
     SlidingWindowRateLimiter,
 )
@@ -47,6 +48,24 @@ def test_require_api_key_rejects_wrong(monkeypatch):
 def test_require_api_key_accepts_valid(monkeypatch):
     monkeypatch.setattr(settings, "API_KEY", "secret-key")
     require_api_key(x_api_key="secret-key")  # não deve lançar
+
+
+def test_write_api_key_rejects_missing(monkeypatch):
+    monkeypatch.setattr(settings, "API_KEY", "secret-key")
+    with pytest.raises(HTTPException) as exc:
+        require_write_api_key(x_api_key="")
+    assert exc.value.status_code == 401
+
+
+def test_write_bypass_is_independent_from_scraping_bypass(monkeypatch):
+    """Liberar scraping sem chave não libera alterações no banco."""
+    monkeypatch.setattr(settings, "API_KEY", "")
+    monkeypatch.setattr(settings, "ALLOW_UNAUTHENTICATED_SCRAPING", True)
+    monkeypatch.setattr(settings, "ALLOW_UNAUTHENTICATED_WRITES", False)
+
+    with pytest.raises(HTTPException) as exc:
+        require_write_api_key(x_api_key="")
+    assert exc.value.status_code == 503
 
 
 # ===== Rate limiter =====
@@ -117,6 +136,16 @@ class FakeRedis:
     def pipeline(self):
         return FakeRedisPipeline(self)
 
+    def eval(self, _script, _numkeys, key, now, window, limit, member):
+        now = float(now)
+        window = float(window)
+        limit = int(limit)
+        self.zremrangebyscore(key, "-inf", now - window)
+        if self.zcard(key) >= limit:
+            return 0
+        self.zadd(key, {member: now})
+        return 1
+
     def zremrangebyscore(self, key, lo, hi):
         entries = self.zsets.setdefault(key, {})
         for member, score in list(entries.items()):
@@ -147,14 +176,15 @@ def test_redis_rate_limiter_is_per_key():
     assert limiter.allow("ip-b") is True
 
 
-def test_redis_rate_limiter_fail_open_when_redis_down():
-    """Se o Redis falhar, a requisição é permitida (fail-open)."""
+def test_redis_rate_limiter_uses_local_fallback_when_redis_down():
+    """Se o Redis falhar, o fallback local mantém a proteção básica."""
     class FailingRedis:
         def pipeline(self):
             raise ConnectionError("redis indisponível")
 
     limiter = RedisSlidingWindowRateLimiter(FailingRedis(), limit=1, window_seconds=60)
     assert limiter.allow("ip") is True
+    assert limiter.allow("ip") is False
 
 
 def test_build_scrape_rate_limiter_memory_without_redis(monkeypatch):
@@ -202,3 +232,10 @@ def test_scrape_teams_requires_api_key(client, monkeypatch):
     )
     assert response.status_code == 200
     assert response.json() == []
+
+
+def test_write_routes_require_api_key(client, monkeypatch, sample_team_data):
+    """O CRUD não pode ser alterado sem a mesma chave administrativa."""
+    monkeypatch.setattr(settings, "API_KEY", "secret-key")
+    response = client.post("/api/v1/teams/", json=sample_team_data)
+    assert response.status_code == 401

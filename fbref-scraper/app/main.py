@@ -1,9 +1,10 @@
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import text
+from sqlalchemy import inspect, text
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.config import settings
 from app.database import Base, engine
@@ -24,15 +25,17 @@ async def lifespan(app: FastAPI):
         logger.warning("AUTO_CREATE_SCHEMA ativo; use Alembic em ambientes de produção")
         Base.metadata.create_all(bind=engine)
 
-    # Avisa quando o schema não é gerenciado pelo Alembic (migrações versionadas)
+    # Valida conectividade e avisa quando o schema não é gerenciado pelo Alembic.
+    database_available = False
     try:
         with engine.connect() as conn:
-            has_version_table = conn.execute(
-                text("SELECT 1 FROM alembic_version")
-            ).fetchone() is not None
-    except Exception:
+            conn.execute(text("SELECT 1"))
+            database_available = True
+            has_version_table = inspect(conn).has_table("alembic_version")
+    except SQLAlchemyError as exc:
+        logger.error("Não foi possível verificar o banco de dados no startup: %s", exc)
         has_version_table = False
-    if not has_version_table and not settings.AUTO_CREATE_SCHEMA:
+    if database_available and not has_version_table and not settings.AUTO_CREATE_SCHEMA:
         logger.warning(
             "Tabela alembic_version ausente. Execute 'alembic upgrade head' "
             "antes de usar a API."
@@ -43,14 +46,14 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="⚽ FBref Scraper API",
+    title="⚽ ESPN Football API",
     summary="Dados de futebol, previsões e odds em uma API REST",
     version=settings.VERSION,
     debug=settings.DEBUG,
     description="""
-# ⚽ FBref Scraper API
+# ⚽ ESPN Football API
 
-API para **scraping de dados de futebol** do [FBref](https://fbref.com), geração de **previsões de partidas** usando modelo Poisson baseado em xG, e integração com **odds de apostas** da [Cloudbet](https://www.cloudbet.com).
+API para **dados de futebol da ESPN**, geração de **previsões de partidas** usando modelo Poisson baseado em xG, e integração com **odds de apostas** da [Cloudbet](https://www.cloudbet.com).
 
 ---
 
@@ -58,9 +61,9 @@ API para **scraping de dados de futebol** do [FBref](https://fbref.com), geraç�
 
 | Módulo | Descrição |
 |--------|-----------|
-| 🏟️ **Times** | Scraping e CRUD de times de ligas específicas |
-| 👤 **Jogadores** | Scraping e CRUD de jogadores de times |
-| ⚽ **Partidas** | Scraping e CRUD de partidas com estatísticas |
+| 🏟️ **Times** | Sincronização ESPN e CRUD de times de ligas específicas |
+| 👤 **Jogadores** | Sincronização ESPN e CRUD de jogadores de times |
+| ⚽ **Partidas** | Sincronização ESPN e CRUD de partidas com estatísticas |
 | 📈 **Estatísticas** | Consulta e manutenção de estatísticas por partida e time |
 | 📊 **Previsões** | Modelo Poisson para prever resultados de partidas |
 | 🎲 **Odds** | Integração com a API da Cloudbet para odds de apostas |
@@ -69,16 +72,16 @@ API para **scraping de dados de futebol** do [FBref](https://fbref.com), geraç�
 
 ## 🚀 Início Rápido
 
-1. **Scraping de times**: `POST /api/v1/teams/scrape?league=Serie-A&season=2024-2025`
-2. **Scraping de jogadores**: `POST /api/v1/players/scrape?fbref_team_id=xxx`
-3. **Scraping de partidas**: `POST /api/v1/matches/scrape?league=Serie-A&season=2024-2025`
+1. **Scraping de times**: `POST /api/v1/teams/scrape?league=Serie-A` (temporada atual por padrão)
+2. **Sincronização de jogadores**: `POST /api/v1/players/scrape?fbref_team_id=86` (ID ESPN; nome do parâmetro mantido por compatibilidade)
+3. **Sincronização de partidas**: `POST /api/v1/matches/scrape?league=Serie-A` (temporada atual por padrão)
 4. **Gerar previsão**: `POST /api/v1/predictions/`
 
 ---
 
 ## 🏆 Ligas Suportadas
 
-| Liga | Código FBref |
+| Liga | Código ESPN |
 |------|-------------|
 | Brasileirão Série A | `Serie-A` |
 | Premier League | `Premier-League` |
@@ -97,7 +100,7 @@ API para **scraping de dados de futebol** do [FBref](https://fbref.com), geraç�
 
 ## ⚠️ Aviso
 
-Este projeto é para fins educacionais. Respeite os termos de serviço do FBref e use o `REQUEST_DELAY` para evitar sobrecarregar o servidor.
+Este projeto é para fins educacionais. Respeite os termos de serviço da ESPN e use o `REQUEST_DELAY` para evitar sobrecarregar o serviço.
 """,
     lifespan=lifespan,
     contact={
@@ -171,6 +174,27 @@ app.include_router(stats_router, prefix=settings.API_V1_PREFIX)
 app.include_router(odds_router, prefix=settings.API_V1_PREFIX)
 
 
+@app.get(
+    settings.API_V1_PREFIX,
+    summary="Endpoints disponíveis",
+    tags=["Informações"],
+)
+def api_v1_root():
+    """Lista todos os módulos disponíveis na API v1."""
+    return {
+        "version": settings.VERSION,
+        "modules": {
+            "teams": f"{settings.API_V1_PREFIX}/teams",
+            "players": f"{settings.API_V1_PREFIX}/players",
+            "matches": f"{settings.API_V1_PREFIX}/matches",
+            "stats": f"{settings.API_V1_PREFIX}/stats",
+            "predictions": f"{settings.API_V1_PREFIX}/predictions",
+            "odds": f"{settings.API_V1_PREFIX}/odds",
+        },
+        "docs": "/docs",
+    }
+
+
 @app.get("/", summary="Informações da API", tags=["Informações"])
 def root():
     """Endpoint raiz com informações básicas da API."""
@@ -184,5 +208,12 @@ def root():
 
 @app.get("/health", summary="Health Check", tags=["Informações"])
 def health_check():
-    """Verifica se a API está saudável."""
-    return {"status": "ok"}
+    """Verifica a API e a conectividade com o banco de dados."""
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+    except SQLAlchemyError as exc:
+        logger.error("Health check falhou ao consultar o banco: %s", exc)
+        raise HTTPException(status_code=503, detail="Banco de dados indisponível")
+
+    return {"status": "ok", "database": "ok"}

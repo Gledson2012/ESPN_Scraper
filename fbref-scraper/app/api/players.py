@@ -6,10 +6,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.api.security import require_api_key, scrape_rate_limiter
+from app.api.security import require_api_key, require_write_api_key, scrape_rate_limiter
 from app.database import get_db
 from app.models import Player, Team
 from app.schemas import PlayerCreate, PlayerUpdate, PlayerResponse
+from app.seasons import current_season
 from app.services.fbref import FBrefService
 
 logger = logging.getLogger(__name__)
@@ -70,6 +71,7 @@ def get_player(player_id: int, db: Session = Depends(get_db)):
     "/",
     response_model=PlayerResponse,
     status_code=201,
+    dependencies=[Depends(require_write_api_key)],
     summary="Criar jogador",
     description="Cria um novo jogador no banco de dados.",
 )
@@ -84,7 +86,7 @@ def create_player(player: PlayerCreate, db: Session = Depends(get_db)):
         db.commit()
     except IntegrityError:
         db.rollback()
-        raise HTTPException(status_code=409, detail="Já existe um jogador com esse FBref ID")
+        raise HTTPException(status_code=409, detail="Já existe um jogador com esse ID externo")
     db.refresh(db_player)
     return db_player
 
@@ -92,6 +94,7 @@ def create_player(player: PlayerCreate, db: Session = Depends(get_db)):
 @router.put(
     "/{player_id}",
     response_model=PlayerResponse,
+    dependencies=[Depends(require_write_api_key)],
     summary="Atualizar jogador",
     description="Atualiza os dados de um jogador existente pelo seu ID.",
 )
@@ -116,7 +119,7 @@ def update_player(player_id: int, player: PlayerUpdate, db: Session = Depends(ge
         db.commit()
     except IntegrityError:
         db.rollback()
-        raise HTTPException(status_code=409, detail="Já existe um jogador com esse FBref ID")
+        raise HTTPException(status_code=409, detail="Já existe um jogador com esse ID externo")
     db.refresh(db_player)
     return db_player
 
@@ -124,6 +127,7 @@ def update_player(player_id: int, player: PlayerUpdate, db: Session = Depends(ge
 @router.delete(
     "/{player_id}",
     status_code=204,
+    dependencies=[Depends(require_write_api_key)],
     summary="Deletar jogador",
     description="Remove um jogador do banco de dados pelo seu ID.",
 )
@@ -141,29 +145,32 @@ def delete_player(player_id: int, db: Session = Depends(get_db)):
     "/scrape",
     response_model=List[PlayerResponse],
     dependencies=[Depends(require_api_key), Depends(scrape_rate_limiter)],
-    summary="Scraping de jogadores do FBref",
+    summary="Sincronização de jogadores da ESPN",
     description="""
-    Busca jogadores de um time específico no FBref e salva no banco de dados.
+    Busca jogadores de um time específico na ESPN e salva no banco de dados.
 
-    **Como obter o `fbref_team_id`:**
-    1. Acesse o [FBref](https://fbref.com)
-    2. Navegue até a página do time desejado
-    3. O ID do time está na URL (ex: `https://fbref.com/en/squads/xxx/Time`)
+    **Como obter o `fbref_team_id` (nome legado):**
+    1. Sincronize a liga desejada pelo endpoint de times
+    2. Consulte o campo `fbref_id` do time, que contém o ID ESPN
     """,
 )
 def scrape_players(
-    fbref_team_id: str = Query(..., description="ID do time no FBref", examples=["flamengo"]),
-    season: str = Query("2024-2025", description="Temporada", examples=["2024-2025"]),
+    fbref_team_id: str = Query(..., description="ID ESPN do time (parâmetro legado)", examples=["86"]),
+    season: Optional[str] = Query(
+        None,
+        description="Temporada; se omitida, usa a temporada atual do time",
+        examples=[current_season("Serie-A"), current_season("Premier-League")],
+    ),
     db: Session = Depends(get_db),
 ):
-    """Busca jogadores de um time no FBref e salva no banco."""
+    """Busca jogadores de um time na ESPN e salva no banco."""
     try:
         service = FBrefService(db)
         players = service.scrape_and_save_players(fbref_team_id, season)
         return players
     except requests.exceptions.RequestException as e:
-        logger.warning(f"Falha ao acessar o FBref ({fbref_team_id} {season}): {e}")
+        logger.warning(f"Falha ao acessar a ESPN ({fbref_team_id} {season}): {e}")
         raise HTTPException(
             status_code=502,
-            detail="Não foi possível acessar o FBref (proteção anti-bot ou falha de rede). Tente novamente mais tarde.",
+            detail="Não foi possível acessar a ESPN (falha de rede ou limite temporário). Tente novamente mais tarde.",
         )

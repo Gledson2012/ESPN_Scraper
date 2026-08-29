@@ -1,8 +1,7 @@
-"""Mapeamento de ligas para os códigos numéricos do FBref (https://fbref.com/en/comps/)."""
+"""Compatibilidade para códigos antigos de ligas do FBref.
 
-import logging
-
-logger = logging.getLogger(__name__)
+Os scrapers ativos usam os códigos da ESPN definidos em app.scrapers.espn.
+"""
 
 LEAGUE_CODES = {
     "Serie-A": "24",  # Brasileirão Série A
@@ -21,8 +20,26 @@ LEAGUE_CODES = {
     "Champions-League": "8",
 }
 
-# Código padrão usado quando a liga não é reconhecida (Série A do Brasil)
-DEFAULT_LEAGUE_CODE = "24"
+
+# O nome usado pela API nem sempre é o mesmo slug usado no caminho do FBref.
+# Em especial, a Série A italiana e as três aliases do Brasileirão usam
+# `Serie-A` no slug da página.
+LEAGUE_SLUGS = {
+    "Serie-A": "Serie-A",
+    "Brasileirao-Serie-A": "Serie-A",
+    "Serie A": "Serie-A",
+    "Premier-League": "Premier-League",
+    "Serie-A-Italy": "Serie-A",
+    "La-Liga": "La-Liga",
+    "Bundesliga": "Bundesliga",
+    "Ligue-1": "Ligue-1",
+    "Eredivisie": "Eredivisie",
+    "Primeira-Liga": "Primeira-Liga",
+    "MLS": "MLS",
+    "Liga-MX": "Liga-MX",
+    "Libertadores": "Libertadores",
+    "Champions-League": "Champions-League",
+}
 
 
 def resolve_league_code(league: str) -> str:
@@ -30,9 +47,8 @@ def resolve_league_code(league: str) -> str:
 
     A prioridade é:
     1. Match exato (case-insensitive)
-    2. Match por conteúdo — testando as chaves mais longas primeiro para
-       evitar que "Serie-A" capture "Serie-A-Italy" indevidamente
-    3. Fallback para a Série A do Brasil
+    2. Caso não exista correspondência, rejeita a liga em vez de retornar
+       dados de outra competição silenciosamente.
     """
     normalized = league.strip().lower()
 
@@ -40,9 +56,19 @@ def resolve_league_code(league: str) -> str:
         if key.lower() == normalized:
             return code
 
-    for key, code in sorted(LEAGUE_CODES.items(), key=lambda kv: len(kv[0]), reverse=True):
-        if key.lower() in normalized or normalized in key.lower():
-            return code
+    raise ValueError(
+        f"Liga não suportada: '{league}'. Use um dos códigos documentados."
+    )
 
-    logger.warning(f"Liga '{league}' não mapeada, usando código {DEFAULT_LEAGUE_CODE} (Série A Brasil)")
-    return DEFAULT_LEAGUE_CODE
+
+def resolve_league_slug(league: str) -> str:
+    """Resolve o slug textual utilizado nos URLs do FBref."""
+    normalized = league.strip().lower()
+
+    for key, slug in LEAGUE_SLUGS.items():
+        if key.lower() == normalized:
+            return slug
+
+    raise ValueError(
+        f"Liga não suportada: '{league}'. Use um dos códigos documentados."
+    )

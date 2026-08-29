@@ -2,6 +2,11 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.seasons import current_season
+
+
+SEASON_EXAMPLES = [current_season("Serie-A"), current_season("Premier-League")]
+
 
 class PredictionRequest(BaseModel):
     """Dados para gerar uma previsão de partida."""
@@ -13,7 +18,7 @@ class PredictionRequest(BaseModel):
                     "home_team_id": 1,
                     "away_team_id": 2,
                     "competition": "Serie-A",
-                    "season": "2024-2025",
+                    "season": current_season("Serie-A"),
                 }
             ]
         }
@@ -22,7 +27,12 @@ class PredictionRequest(BaseModel):
     home_team_id: int = Field(..., gt=0, description="ID do time da casa", examples=[1])
     away_team_id: int = Field(..., gt=0, description="ID do time visitante", examples=[2])
     competition: Optional[str] = Field(None, min_length=1, description="Filtrar o histórico por competição", examples=["Serie-A"])
-    season: Optional[str] = Field(None, min_length=1, description="Filtrar o histórico por temporada", examples=["2024-2025"])
+    season: Optional[str] = Field(
+        None,
+        min_length=1,
+        description="Filtrar o histórico por temporada (ex.: 2026 ou 2026-2027)",
+        examples=SEASON_EXAMPLES,
+    )
 
     @model_validator(mode="after")
     def teams_must_be_different(self):

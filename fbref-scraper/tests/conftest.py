@@ -15,6 +15,7 @@ import app.main as main_module
 from app.main import app
 from app.database import Base, get_db
 from app.models import Match, MatchStats
+from app.config import settings
 
 # Banco de dados em memória para testes
 SQLALCHEMY_DATABASE_URL = "sqlite://"
@@ -24,6 +25,14 @@ engine = create_engine(
     poolclass=StaticPool,
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+
+@pytest.fixture(autouse=True)
+def enable_test_writes(monkeypatch):
+    """Permite o CRUD nos testes sem colocar uma chave real no ambiente."""
+    monkeypatch.setattr(settings, "API_KEY", "")
+    monkeypatch.setattr(settings, "ALLOW_UNAUTHENTICATED_SCRAPING", True)
+    monkeypatch.setattr(settings, "ALLOW_UNAUTHENTICATED_WRITES", True)
 
 
 @pytest.fixture(scope="session", autouse=True)

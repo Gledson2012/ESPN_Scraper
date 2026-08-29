@@ -6,12 +6,33 @@ from sqlalchemy.orm import Session
 
 from app.models import Team, Player, Match, MatchStats
 from app.scrapers import TeamsScraper, PlayersScraper, MatchesScraper, StatisticsScraper
+from app.seasons import resolve_season
 
 logger = logging.getLogger(__name__)
 
+SCRAPED_STAT_FIELDS = (
+    "possession",
+    "shots",
+    "shots_on_target",
+    "corners",
+    "fouls",
+    "yellow_cards",
+    "red_cards",
+    "offsides",
+    "xg",
+    "passes",
+    "pass_accuracy",
+    "tackles",
+    "interceptions",
+    "saves",
+)
+
 
 class FBrefService:
-    """Serviço que orquestra os scrapers e persiste os dados no banco."""
+    """Serviço de sincronização que persiste dados da ESPN no banco.
+
+    O nome da classe é mantido por compatibilidade com as rotas existentes.
+    """
 
     def __init__(self, db: Session):
         self.db = db
@@ -22,8 +43,9 @@ class FBrefService:
 
     # ===== Times =====
 
-    def scrape_and_save_teams(self, league: str, season: str) -> List[Team]:
-        """Busca times de uma liga no FBref e salva no banco."""
+    def scrape_and_save_teams(self, league: str, season: Optional[str] = None) -> List[Team]:
+        """Busca times de uma liga na ESPN e salva no banco."""
+        season = resolve_season(league, season)
         teams_data = self.teams_scraper.get_league_teams(league, season)
         saved_teams = []
 
@@ -52,43 +74,84 @@ class FBrefService:
                 .first()
             )
 
+        if not team and team_data.get("name"):
+            # Permite atualizar instalações antigas que ainda possuem o ID do
+            # uma fonte anterior quando a mesma equipe passa a ser identificada pela ESPN.
+            team = (
+                self.db.query(Team)
+                .filter(
+                    Team.name == team_data["name"],
+                    Team.league == team_data.get("league"),
+                )
+                .first()
+            )
+
         if not team:
             team = Team(
                 name=team_data.get("name"),
                 fbref_id=fbref_id,
                 league=team_data.get("league"),
+                short_name=team_data.get("short_name"),
+                country=team_data.get("country"),
+                stadium=team_data.get("stadium"),
+                founded=team_data.get("founded"),
+                website=team_data.get("website"),
+                logo_url=team_data.get("logo_url"),
             )
             self.db.add(team)
             self.db.flush()
 
         else:
-            self._update_fields(team, team_data, ["name", "league"])
-
-        # O endpoint de elenco contém os dados atuais; detalhes extras só são
-        # buscados quando ainda faltam no registro, evitando chamadas repetidas.
-        if fbref_id and any(
-            getattr(team, field) is None
-            for field in ["short_name", "country", "stadium", "founded", "website"]
-        ):
-            self._enrich_team(team, fbref_id)
+            self._update_fields(
+                team,
+                team_data,
+                [
+                    "name",
+                    "league",
+                    "fbref_id",
+                    "short_name",
+                    "country",
+                    "stadium",
+                    "founded",
+                    "website",
+                    "logo_url",
+                ],
+            )
 
         return team
 
     # ===== Jogadores =====
 
-    def scrape_and_save_players(self, fbref_team_id: str, season: str = "2024-2025") -> List[Player]:
-        """Busca jogadores de um time no FBref e salva no banco."""
+    def scrape_and_save_players(self, fbref_team_id: str, season: Optional[str] = None) -> List[Player]:
+        """Busca jogadores de um time na ESPN e salva no banco."""
         team = self.db.query(Team).filter(Team.fbref_id == fbref_team_id).first()
         if not team:
             logger.warning(f"Time com fbref_id {fbref_team_id} não encontrado no banco")
             return []
 
-        players_data = self.players_scraper.get_team_players(fbref_team_id, season)
+        syncing_current_squad = not (season and season.strip())
+        season = resolve_season(team.league, season)
+        players_data = self.players_scraper.get_team_players(
+            fbref_team_id,
+            season,
+            team.league,
+        )
+        if not players_data:
+            logger.warning(
+                "Nenhum jogador coletado para %s (%s); elenco existente foi preservado",
+                fbref_team_id,
+                season,
+            )
+            return []
+
         saved_players = []
 
         for player_data in players_data:
             player = self._get_or_create_player(player_data, team.id)
             saved_players.append(player)
+
+        if syncing_current_squad:
+            self._detach_players_not_in_current_squad(team.id, players_data)
 
         self.db.commit()
         logger.info(f"Salvos {len(saved_players)} jogadores do time {fbref_team_id}")
@@ -108,6 +171,18 @@ class FBrefService:
                 .first()
             )
 
+        if not player and player_data.get("name"):
+            # Reaproveita jogadores gravados por uma fonte anterior quando o
+            # ID externo mudar entre provedores.
+            player = (
+                self.db.query(Player)
+                .filter(
+                    Player.name == player_data["name"],
+                    Player.team_id == team_id,
+                )
+                .first()
+            )
+
         if not player:
             player = Player(
                 name=player_data.get("name"),
@@ -116,6 +191,12 @@ class FBrefService:
                 position=player_data.get("position"),
                 shirt_number=player_data.get("shirt_number"),
                 nationality=player_data.get("nationality"),
+                full_name=player_data.get("full_name"),
+                birth_date=player_data.get("birth_date"),
+                height_cm=player_data.get("height_cm"),
+                weight_kg=player_data.get("weight_kg"),
+                foot=player_data.get("foot"),
+                photo_url=player_data.get("photo_url"),
             )
             self.db.add(player)
             self.db.flush()
@@ -123,14 +204,26 @@ class FBrefService:
             self._update_fields(
                 player,
                 player_data,
-                ["name", "position", "shirt_number", "nationality"],
+                [
+                    "name",
+                    "fbref_id",
+                    "position",
+                    "shirt_number",
+                    "nationality",
+                    "full_name",
+                    "birth_date",
+                    "height_cm",
+                    "weight_kg",
+                    "foot",
+                    "photo_url",
+                ],
             )
             # Um jogador pode mudar de clube entre duas coletas.
             player.team_id = team_id
 
         if fbref_id and any(
             getattr(player, field) is None
-            for field in ["full_name", "birth_date", "height_cm", "weight_kg", "foot"]
+            for field in ["full_name", "birth_date", "height_cm", "weight_kg"]
         ):
             self._enrich_player(player, fbref_id)
 
@@ -138,8 +231,9 @@ class FBrefService:
 
     # ===== Partidas =====
 
-    def scrape_and_save_matches(self, league: str, season: str) -> List[Match]:
-        """Busca partidas de uma liga no FBref e salva no banco."""
+    def scrape_and_save_matches(self, league: str, season: Optional[str] = None) -> List[Match]:
+        """Busca partidas de uma liga na ESPN e salva no banco."""
+        season = resolve_season(league, season)
         matches_data = self.matches_scraper.get_league_matches(league, season)
         saved_matches = []
 
@@ -152,8 +246,36 @@ class FBrefService:
         logger.info(f"Salvas {len(saved_matches)} partidas da liga {league} {season}")
         return saved_matches
 
+    def _detach_players_not_in_current_squad(
+        self,
+        team_id: int,
+        players_data: List[dict],
+    ) -> None:
+        """Remove do elenco atual jogadores que não vieram na nova coleta.
+
+        O registro é mantido no banco para preservar o histórico, mas fica
+        sem `team_id` e deixa de aparecer em `/teams/{id}/players`. A
+        reconciliação só é feita quando todos os jogadores coletados têm ID do
+        ESPN, evitando falsos desligamentos em resposta incompleta.
+        """
+        current_ids = {
+            player_data["fbref_id"]
+            for player_data in players_data
+            if player_data.get("fbref_id")
+        }
+        if len(current_ids) != len(players_data):
+            logger.warning(
+                "Coleta de elenco sem IDs completos para o time %s; reconciliação ignorada",
+                team_id,
+            )
+            return
+
+        for player in self.db.query(Player).filter(Player.team_id == team_id).all():
+            if player.fbref_id not in current_ids:
+                player.team_id = None
+
     def _get_or_create_match(self, match_data: dict) -> Optional[Match]:
-        """Busca uma partida pelo fbref_id ou cria uma nova."""
+        """Busca uma partida pelo ID externo ou cria uma nova."""
         fbref_id = match_data.get("fbref_id")
         if not fbref_id:
             return None
@@ -170,14 +292,23 @@ class FBrefService:
 
         if match:
             # Atualiza o que veio da coleta, mas preserva valores já conhecidos
-            # quando o FBref retornar uma célula vazia.
+            # quando a ESPN retornar uma célula vazia.
             if home_team and away_team and home_team.id != away_team.id:
                 match.home_team_id = home_team.id
                 match.away_team_id = away_team.id
             self._update_fields(
                 match,
                 match_data,
-                ["competition", "season", "match_date", "home_score", "away_score"],
+                [
+                    "competition",
+                    "season",
+                    "match_date",
+                    "venue",
+                    "attendance",
+                    "referee",
+                    "home_score",
+                    "away_score",
+                ],
             )
             return match
 
@@ -191,6 +322,9 @@ class FBrefService:
             competition=match_data.get("competition"),
             season=match_data.get("season"),
             match_date=match_data.get("match_date"),
+            venue=match_data.get("venue"),
+            attendance=match_data.get("attendance"),
+            referee=match_data.get("referee"),
             home_score=match_data.get("home_score"),
             away_score=match_data.get("away_score"),
             fbref_id=fbref_id,
@@ -198,14 +332,15 @@ class FBrefService:
         self.db.add(match)
         self.db.flush()
 
-        self._enrich_match(match, fbref_id)
+        if not match_data.get("venue") or match_data.get("attendance") is None:
+            self._enrich_match(match, fbref_id)
 
         return match
 
     # ===== Estatísticas =====
 
     def scrape_and_save_match_statistics(self, fbref_match_id: str) -> Optional[MatchStats]:
-        """Busca estatísticas de uma partida no FBref e salva no banco."""
+        """Busca estatísticas de uma partida na ESPN e salva no banco."""
         match = self.db.query(Match).filter(Match.fbref_id == fbref_match_id).first()
         if not match:
             logger.warning(f"Partida com fbref_id {fbref_match_id} não encontrada no banco")
@@ -213,66 +348,89 @@ class FBrefService:
 
         stats_data = self.statistics_scraper.get_match_statistics(fbref_match_id) or {}
 
-        # Não apagar dados existentes quando a coleta não retorna estatísticas reais
-        stat_keys = [
-            key
-            for key in stats_data
-            if key.startswith(("home_", "away_"))
-            and key not in ("home_team", "away_team")
-        ]
-        has_stats = any(stats_data.get(key) is not None for key in stat_keys)
-        if not has_stats:
-            logger.warning(f"Nenhuma estatística coletada para a partida {fbref_match_id}; mantendo dados existentes")
+        # Exige pelo menos uma métrica para cada lado. Uma resposta parcial de
+        # bloqueio/alteração de HTML não deve apagar dados válidos já coletados.
+        has_home_stats = any(
+            stats_data.get(f"home_{field}") is not None
+            for field in SCRAPED_STAT_FIELDS
+        )
+        has_away_stats = any(
+            stats_data.get(f"away_{field}") is not None
+            for field in SCRAPED_STAT_FIELDS
+        )
+        if not has_home_stats or not has_away_stats:
+            logger.warning(
+                "Estatísticas incompletas para a partida %s; mantendo dados existentes",
+                fbref_match_id,
+            )
             return None
 
-        # Evitar duplicação: re-scraping substitui as estatísticas existentes da partida
-        self.db.query(MatchStats).filter(MatchStats.match_id == match.id).delete(synchronize_session=False)
-
-        # Salvar estatísticas do time da casa (xg_against = xG do visitante)
-        home_stats = MatchStats(
-            match_id=match.id,
+        # Atualiza somente valores presentes e preserva campos já preenchidos
+        # quando o novo HTML não os trouxer. Se não existir, cria o registro.
+        home_stats = self._upsert_match_stats(
+            match,
+            stats_data,
+            prefix="home",
+            opposing_prefix="away",
             team_id=match.home_team_id,
             is_home=True,
-            possession=stats_data.get("home_possession"),
-            shots=stats_data.get("home_shots"),
-            shots_on_target=stats_data.get("home_shots_on_target"),
-            corners=stats_data.get("home_corners"),
-            fouls=stats_data.get("home_fouls"),
-            yellow_cards=stats_data.get("home_yellow_cards"),
-            red_cards=stats_data.get("home_red_cards"),
-            offsides=stats_data.get("home_offsides"),
-            xg=stats_data.get("home_xg"),
-            xg_against=stats_data.get("away_xg"),
-            passes=stats_data.get("home_passes"),
-            tackles=stats_data.get("home_tackles"),
-            saves=stats_data.get("home_saves"),
         )
-        self.db.add(home_stats)
-
-        # Salvar estatísticas do time visitante (xg_against = xG do time da casa)
-        away_stats = MatchStats(
-            match_id=match.id,
+        self._upsert_match_stats(
+            match,
+            stats_data,
+            prefix="away",
+            opposing_prefix="home",
             team_id=match.away_team_id,
             is_home=False,
-            possession=stats_data.get("away_possession"),
-            shots=stats_data.get("away_shots"),
-            shots_on_target=stats_data.get("away_shots_on_target"),
-            corners=stats_data.get("away_corners"),
-            fouls=stats_data.get("away_fouls"),
-            yellow_cards=stats_data.get("away_yellow_cards"),
-            red_cards=stats_data.get("away_red_cards"),
-            offsides=stats_data.get("away_offsides"),
-            xg=stats_data.get("away_xg"),
-            xg_against=stats_data.get("home_xg"),
-            passes=stats_data.get("away_passes"),
-            tackles=stats_data.get("away_tackles"),
-            saves=stats_data.get("away_saves"),
         )
-        self.db.add(away_stats)
 
         self.db.commit()
         logger.info(f"Estatísticas salvas para partida {fbref_match_id}")
         return home_stats
+
+    def _upsert_match_stats(
+        self,
+        match: Match,
+        stats_data: dict,
+        prefix: str,
+        opposing_prefix: str,
+        team_id: int,
+        is_home: bool,
+    ) -> MatchStats:
+        """Atualiza ou cria estatísticas sem apagar valores ausentes no scrape."""
+        values = {
+            "possession": stats_data.get(f"{prefix}_possession"),
+            "shots": stats_data.get(f"{prefix}_shots"),
+            "shots_on_target": stats_data.get(f"{prefix}_shots_on_target"),
+            "corners": stats_data.get(f"{prefix}_corners"),
+            "fouls": stats_data.get(f"{prefix}_fouls"),
+            "yellow_cards": stats_data.get(f"{prefix}_yellow_cards"),
+            "red_cards": stats_data.get(f"{prefix}_red_cards"),
+            "offsides": stats_data.get(f"{prefix}_offsides"),
+            "xg": stats_data.get(f"{prefix}_xg"),
+            "xg_against": stats_data.get(f"{opposing_prefix}_xg"),
+            "passes": stats_data.get(f"{prefix}_passes"),
+            "pass_accuracy": stats_data.get(f"{prefix}_pass_accuracy"),
+            "tackles": stats_data.get(f"{prefix}_tackles"),
+            "interceptions": stats_data.get(f"{prefix}_interceptions"),
+            "saves": stats_data.get(f"{prefix}_saves"),
+        }
+        stat = self.db.query(MatchStats).filter(
+            MatchStats.match_id == match.id,
+            MatchStats.team_id == team_id,
+        ).first()
+        if not stat:
+            stat = MatchStats(
+                match_id=match.id,
+                team_id=team_id,
+                is_home=is_home,
+                **values,
+            )
+            self.db.add(stat)
+        else:
+            stat.is_home = is_home
+            self._update_fields(stat, values, list(values))
+        return stat
 
     @staticmethod
     def _update_fields(model, data: dict, fields: List[str]) -> None:

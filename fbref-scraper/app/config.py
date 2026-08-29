@@ -1,5 +1,4 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import Optional
 
 
 class Settings(BaseSettings):
@@ -9,6 +8,7 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
+        extra="ignore",
     )
 
     # Banco de dados
@@ -16,7 +16,7 @@ class Settings(BaseSettings):
 
     # API
     API_V1_PREFIX: str = "/api/v1"
-    PROJECT_NAME: str = "FBref Scraper"
+    PROJECT_NAME: str = "ESPN Football API"
     VERSION: str = "1.1.0"
     DEBUG: bool = False
     # Lista separada por vírgulas. Vazia = sem credenciais e qualquer origem.
@@ -41,12 +41,18 @@ class Settings(BaseSettings):
     CLOUDBET_API_KEY: str = ""
     CLOUDBET_BASE_URL: str = "https://sports-api.cloudbet.com/v2"
 
-    # Segurança dos endpoints de scraping
-    API_KEY: str = ""  # Deve ser configurada para habilitar scraping
+    # Segurança de scraping e operações administrativas
+    API_KEY: str = ""  # Chave para scraping e operações de escrita
     ALLOW_UNAUTHENTICATED_SCRAPING: bool = False  # Somente desenvolvimento/testes
+    ALLOW_UNAUTHENTICATED_WRITES: bool = False  # Somente desenvolvimento/testes
     SCRAPE_RATE_LIMIT: int = 30  # Máximo de requisições de scraping por IP por janela
     SCRAPE_RATE_WINDOW: int = 60  # Janela do rate limit (em segundos)
+    API_RATE_LIMIT: int = 120  # Máximo de requisições públicas por IP por janela
+    API_RATE_WINDOW: int = 60
     REDIS_URL: str = ""  # Se vazio, o rate limit é em memória (por processo)
+
+    # Limite para evitar uma explosão de chamadas à Cloudbet sem esconder a regra
+    CLOUDBET_MAX_COMPETITIONS: int = 20
 
 
 settings = Settings()

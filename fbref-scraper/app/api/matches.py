@@ -7,10 +7,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.api.security import require_api_key, scrape_rate_limiter
+from app.api.security import require_api_key, require_write_api_key, scrape_rate_limiter
 from app.database import get_db
 from app.models import Match, MatchStats, Team
 from app.schemas import MatchCreate, MatchStatsResponse, MatchUpdate, MatchResponse
+from app.seasons import current_season, resolve_season
 from app.services.fbref import FBrefService
 
 logger = logging.getLogger(__name__)
@@ -27,7 +28,7 @@ router = APIRouter(prefix="/matches", tags=["Partidas"])
 
     **Filtros disponíveis:**
     - `competition`: Filtra por competição (ex: `Serie-A`)
-    - `season`: Filtra por temporada (ex: `2024-2025`)
+    - `season`: Filtra por temporada (ex: `2026` ou `2026-2027`)
     - `team_id`: Filtra por time (casa ou fora)
     - `date_from`/`date_to`: Filtra por período de datas
     - `skip`/`limit`: Paginação dos resultados
@@ -35,7 +36,11 @@ router = APIRouter(prefix="/matches", tags=["Partidas"])
 )
 def list_matches(
     competition: Optional[str] = Query(None, description="Filtrar por competição", examples=["Serie-A"]),
-    season: Optional[str] = Query(None, description="Filtrar por temporada", examples=["2024-2025"]),
+    season: Optional[str] = Query(
+        None,
+        description="Filtrar por temporada (ex.: 2026 ou 2026-2027)",
+        examples=["2026", "2026-2027"],
+    ),
     team_id: Optional[int] = Query(None, gt=0, description="Filtrar por time (casa ou fora)", examples=[1]),
     date_from: Optional[datetime] = Query(None, description="Data inicial (formato ISO)", examples=["2025-01-01T00:00:00"]),
     date_to: Optional[datetime] = Query(None, description="Data final (formato ISO)", examples=["2025-12-31T23:59:59"]),
@@ -95,6 +100,7 @@ def get_match_stats(match_id: int, db: Session = Depends(get_db)):
     "/",
     response_model=MatchResponse,
     status_code=201,
+    dependencies=[Depends(require_write_api_key)],
     summary="Criar partida",
     description="Cria uma nova partida no banco de dados.",
 )
@@ -111,7 +117,7 @@ def create_match(match: MatchCreate, db: Session = Depends(get_db)):
         db.commit()
     except IntegrityError:
         db.rollback()
-        raise HTTPException(status_code=409, detail="Já existe uma partida com esse FBref ID")
+        raise HTTPException(status_code=409, detail="Já existe uma partida com esse ID externo")
     db.refresh(db_match)
     return db_match
 
@@ -119,6 +125,7 @@ def create_match(match: MatchCreate, db: Session = Depends(get_db)):
 @router.put(
     "/{match_id}",
     response_model=MatchResponse,
+    dependencies=[Depends(require_write_api_key)],
     summary="Atualizar partida",
     description="Atualiza os dados de uma partida existente pelo seu ID.",
 )
@@ -147,7 +154,7 @@ def update_match(match_id: int, match: MatchUpdate, db: Session = Depends(get_db
         db.commit()
     except IntegrityError:
         db.rollback()
-        raise HTTPException(status_code=409, detail="Já existe uma partida com esse FBref ID")
+        raise HTTPException(status_code=409, detail="Já existe uma partida com esse ID externo")
     db.refresh(db_match)
     return db_match
 
@@ -155,6 +162,7 @@ def update_match(match_id: int, match: MatchUpdate, db: Session = Depends(get_db
 @router.delete(
     "/{match_id}",
     status_code=204,
+    dependencies=[Depends(require_write_api_key)],
     summary="Deletar partida",
     description="Remove uma partida do banco de dados pelo seu ID.",
 )
@@ -172,9 +180,9 @@ def delete_match(match_id: int, db: Session = Depends(get_db)):
     "/scrape",
     response_model=List[MatchResponse],
     dependencies=[Depends(require_api_key), Depends(scrape_rate_limiter)],
-    summary="Scraping de partidas do FBref",
+    summary="Sincronização de partidas da ESPN",
     description="""
-    Busca partidas de uma liga específica no FBref e salva no banco de dados.
+    Busca partidas de uma liga específica na ESPN e salva no banco de dados.
 
     **Ligas suportadas:**
     - `Serie-A` (Brasileirão)
@@ -193,19 +201,26 @@ def delete_match(match_id: int, db: Session = Depends(get_db)):
 )
 def scrape_matches(
     league: str = Query(..., description="Código da liga (ex: Serie-A)", examples=["Serie-A"]),
-    season: str = Query("2024-2025", description="Temporada", examples=["2024-2025"]),
+    season: Optional[str] = Query(
+        None,
+        description="Temporada; se omitida, usa a temporada atual da liga",
+        examples=[current_season("Serie-A"), current_season("Premier-League")],
+    ),
     db: Session = Depends(get_db),
 ):
-    """Busca partidas de uma liga no FBref e salva no banco."""
+    """Busca partidas de uma liga na ESPN e salva no banco."""
     try:
+        season = resolve_season(league, season)
         service = FBrefService(db)
         matches = service.scrape_and_save_matches(league, season)
         return matches
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
     except requests.exceptions.RequestException as e:
-        logger.warning(f"Falha ao acessar o FBref ({league} {season}): {e}")
+        logger.warning(f"Falha ao acessar a ESPN ({league} {season}): {e}")
         raise HTTPException(
             status_code=502,
-            detail="Não foi possível acessar o FBref (proteção anti-bot ou falha de rede). Tente novamente mais tarde.",
+            detail="Não foi possível acessar a ESPN (falha de rede ou limite temporário). Tente novamente mais tarde.",
         )
 
 
@@ -215,7 +230,7 @@ def scrape_matches(
     dependencies=[Depends(require_api_key), Depends(scrape_rate_limiter)],
     summary="Scraping de estatísticas da partida",
     description="""
-    Busca estatísticas detalhadas de uma partida no FBref e salva no banco de dados.
+    Busca estatísticas detalhadas de uma partida na ESPN e salva no banco de dados.
 
     **Estatísticas coletadas:**
     - Posse de bola, finalizações, escanteios, faltas
@@ -226,7 +241,7 @@ def scrape_matches(
     """,
 )
 def scrape_match_statistics(match_id: int, db: Session = Depends(get_db)):
-    """Busca estatísticas de uma partida no FBref e salva no banco."""
+    """Busca estatísticas de uma partida na ESPN e salva no banco."""
     match = db.query(Match).filter(Match.id == match_id).first()
     if not match:
         raise HTTPException(status_code=404, detail="Partida não encontrada")
@@ -235,10 +250,10 @@ def scrape_match_statistics(match_id: int, db: Session = Depends(get_db)):
         service = FBrefService(db)
         service.scrape_and_save_match_statistics(match.fbref_id)
     except requests.exceptions.RequestException as e:
-        logger.warning(f"Falha ao acessar o FBref (partida {match.fbref_id}): {e}")
+        logger.warning(f"Falha ao acessar a ESPN (partida {match.fbref_id}): {e}")
         raise HTTPException(
             status_code=502,
-            detail="Não foi possível acessar o FBref (proteção anti-bot ou falha de rede). Tente novamente mais tarde.",
+            detail="Não foi possível acessar a ESPN (falha de rede ou limite temporário). Tente novamente mais tarde.",
         )
     db.refresh(match)
     return match

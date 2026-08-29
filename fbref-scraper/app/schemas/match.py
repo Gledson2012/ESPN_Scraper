@@ -3,6 +3,10 @@ from datetime import datetime
 from typing import Optional, List
 
 from app.schemas.match_stats import MatchStatsResponse
+from app.seasons import current_season
+
+
+SEASON_EXAMPLES = [current_season("Serie-A"), current_season("Premier-League")]
 
 
 class MatchBase(BaseModel):
@@ -11,7 +15,11 @@ class MatchBase(BaseModel):
     home_team_id: int = Field(..., gt=0, description="ID do time da casa", examples=[1])
     away_team_id: int = Field(..., gt=0, description="ID do time visitante", examples=[2])
     competition: Optional[str] = Field(None, description="Competição", examples=["Serie-A"])
-    season: Optional[str] = Field(None, description="Temporada", examples=["2024-2025"])
+    season: Optional[str] = Field(
+        None,
+        description="Temporada (ex.: 2026 ou 2026-2027)",
+        examples=SEASON_EXAMPLES,
+    )
     match_date: Optional[datetime] = Field(None, description="Data da partida", examples=["2025-03-15T20:00:00"])
     venue: Optional[str] = Field(None, description="Local da partida", examples=["Maracanã"])
     home_score: Optional[int] = Field(None, ge=0, description="Gols do time da casa", examples=[2])
@@ -20,7 +28,7 @@ class MatchBase(BaseModel):
     away_xg: Optional[float] = Field(None, ge=0, le=20, description="xG do time visitante", examples=[0.92])
     attendance: Optional[int] = Field(None, ge=0, description="Público presente", examples=[65000])
     referee: Optional[str] = Field(None, description="Árbitro da partida", examples=["Anderson Daronco"])
-    fbref_id: Optional[str] = Field(None, description="ID da partida no FBref", examples=["abc123"])
+    fbref_id: Optional[str] = Field(None, description="ID externo da partida na ESPN (campo legado)", examples=["401882899"])
 
     @model_validator(mode="after")
     def teams_must_be_different(self):
@@ -39,7 +47,7 @@ class MatchCreate(MatchBase):
                     "home_team_id": 1,
                     "away_team_id": 2,
                     "competition": "Serie-A",
-                    "season": "2024-2025",
+                    "season": current_season("Serie-A"),
                     "home_score": 2,
                     "away_score": 1,
                     "fbref_id": "match-123",
@@ -57,7 +65,11 @@ class MatchUpdate(BaseModel):
     home_team_id: Optional[int] = Field(None, gt=0, description="ID do time da casa", examples=[1])
     away_team_id: Optional[int] = Field(None, gt=0, description="ID do time visitante", examples=[2])
     competition: Optional[str] = Field(None, description="Competição", examples=["Serie-A"])
-    season: Optional[str] = Field(None, description="Temporada", examples=["2024-2025"])
+    season: Optional[str] = Field(
+        None,
+        description="Temporada (ex.: 2026 ou 2026-2027)",
+        examples=SEASON_EXAMPLES,
+    )
     match_date: Optional[datetime] = Field(None, description="Data da partida", examples=["2025-03-15T20:00:00"])
     venue: Optional[str] = Field(None, description="Local da partida", examples=["Maracanã"])
     home_score: Optional[int] = Field(None, ge=0, description="Gols do time da casa", examples=[2])
@@ -66,7 +78,7 @@ class MatchUpdate(BaseModel):
     away_xg: Optional[float] = Field(None, ge=0, le=20, description="xG do time visitante", examples=[0.92])
     attendance: Optional[int] = Field(None, ge=0, description="Público presente", examples=[65000])
     referee: Optional[str] = Field(None, description="Árbitro da partida", examples=["Anderson Daronco"])
-    fbref_id: Optional[str] = Field(None, description="ID da partida no FBref", examples=["abc123"])
+    fbref_id: Optional[str] = Field(None, description="ID externo da partida na ESPN (campo legado)", examples=["401882899"])
 
     @model_validator(mode="after")
     def teams_must_be_different_when_present(self):

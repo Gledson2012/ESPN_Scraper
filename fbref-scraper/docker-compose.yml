@@ -3,15 +3,16 @@ services:
     image: postgres:16-alpine
     container_name: fbref_db
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: fbref_scraper
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no arquivo .env}"
+      POSTGRES_DB: ${POSTGRES_DB:-fbref_scraper}
     ports:
-      - "5433:5432"
+      # Acesso local opcional; não expõe o banco para a rede externa.
+      - "127.0.0.1:5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-fbref_scraper}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -37,10 +38,11 @@ services:
       redis:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@db:5432/fbref_scraper
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-fbref_scraper}
       REDIS_URL: redis://redis:6379/0
       API_KEY: ${API_KEY:-}
-      CORS_ORIGINS: ${CORS_ORIGINS:-}
+      CLOUDBET_API_KEY: ${CLOUDBET_API_KEY:-}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
     ports:
       - "8000:8000"
     volumes:

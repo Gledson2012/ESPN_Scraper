@@ -1,5 +1,7 @@
 import httpx
 import logging
+import re
+import unicodedata
 from typing import Optional, Dict, Any, List
 from app.config import settings
 
@@ -104,7 +106,16 @@ class CloudbetService:
         active_competitions = [
             c for c in competitions
             if c.get("eventCount", 0) > 0
-        ][:5]  # Limita a 5 competições para não sobrecarregar
+        ]
+        max_competitions = max(1, settings.CLOUDBET_MAX_COMPETITIONS)
+        if len(active_competitions) > max_competitions:
+            logger.warning(
+                "Cloudbet possui %s competições ativas; limitando a %s conforme "
+                "CLOUDBET_MAX_COMPETITIONS",
+                len(active_competitions),
+                max_competitions,
+            )
+            active_competitions = active_competitions[:max_competitions]
 
         for comp in active_competitions:
             try:
@@ -145,32 +156,71 @@ class CloudbetService:
     async def get_match_odds(self, home_team: str, away_team: str) -> Optional[Dict[str, Any]]:
         """Busca odds para uma partida específica entre dois times."""
         events = await self.search_events()
-        requested_home = home_team.strip().casefold()
-        requested_away = away_team.strip().casefold()
+        requested_home = self._normalize_team_name(home_team)
+        requested_away = self._normalize_team_name(away_team)
         if not requested_home or not requested_away:
             return None
 
+        candidates = []
         for event in events:
             home = event.get("home", {}) or {}
             away = event.get("away", {}) or {}
-            home_name = home.get("name", "").strip().casefold()
-            away_name = away.get("name", "").strip().casefold()
+            home_name = self._normalize_team_name(home.get("name", ""))
+            away_name = self._normalize_team_name(away.get("name", ""))
             if not home_name or not away_name:
                 continue
 
-            if (
-                requested_home in home_name or home_name in requested_home
-            ) and (
-                requested_away in away_name or away_name in requested_away
-            ):
-                return {
-                    "event_id": event["id"],
-                    "event_name": event.get("name", ""),
-                    "home_team": home.get("name", ""),
-                    "away_team": away.get("name", ""),
-                    "start_time": event.get("startTime", ""),
-                    "competition": event.get("competition", {}),
-                    "markets": event.get("markets", {}),
-                    "status": event.get("status", ""),
-                }
-        return None
+            home_score = self._team_match_score(requested_home, home_name)
+            away_score = self._team_match_score(requested_away, away_name)
+            if home_score and away_score:
+                candidates.append((home_score + away_score, event))
+
+        if not candidates:
+            return None
+
+        best_score = max(score for score, _ in candidates)
+        best_events = [event for score, event in candidates if score == best_score]
+        # Sem data/competição na entrada, uma correspondência ambígua não deve
+        # ser transformada silenciosamente em uma aposta de outro jogo.
+        if len(best_events) != 1:
+            logger.warning(
+                "Busca de odds ambígua para %s vs %s: %s candidatos",
+                home_team,
+                away_team,
+                len(best_events),
+            )
+            return None
+
+        event = best_events[0]
+        home = event.get("home", {}) or {}
+        away = event.get("away", {}) or {}
+        return {
+            "event_id": event["id"],
+            "event_name": event.get("name", ""),
+            "home_team": home.get("name", ""),
+            "away_team": away.get("name", ""),
+            "start_time": event.get("startTime", ""),
+            "competition": event.get("competition", {}),
+            "markets": event.get("markets", {}),
+            "status": event.get("status", ""),
+        }
+
+    @staticmethod
+    def _normalize_team_name(value: Any) -> str:
+        """Normaliza acentos e pontuação para comparar nomes com sufixos."""
+        if value is None:
+            return ""
+        normalized = unicodedata.normalize("NFKD", str(value))
+        normalized = "".join(char for char in normalized if not unicodedata.combining(char))
+        return " ".join(re.sub(r"[^a-zA-Z0-9]+", " ", normalized.casefold()).split())
+
+    @staticmethod
+    def _team_match_score(requested: str, actual: str) -> int:
+        """Pontua match exato/seguro; rejeita buscas curtas e pouco confiáveis."""
+        if requested == actual:
+            return 3
+        if len(requested) < 4 or len(actual) < 4:
+            return 0
+        if requested in actual or actual in requested:
+            return 1
+        return 0

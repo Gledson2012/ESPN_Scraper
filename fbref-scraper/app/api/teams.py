@@ -6,10 +6,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.api.security import require_api_key, scrape_rate_limiter
+from app.api.security import require_api_key, require_write_api_key, scrape_rate_limiter
 from app.database import get_db
 from app.models import Match, MatchStats, Player, Team
 from app.schemas import MatchResponse, PlayerResponse, TeamCreate, TeamSummaryResponse, TeamUpdate, TeamResponse
+from app.seasons import current_season, resolve_season
 from app.services.fbref import FBrefService
 
 logger = logging.getLogger(__name__)
@@ -94,7 +95,11 @@ def list_team_players(
 def list_team_matches(
     team_id: int,
     competition: Optional[str] = Query(None, description="Filtrar por competição", examples=["Serie-A"]),
-    season: Optional[str] = Query(None, description="Filtrar por temporada", examples=["2024-2025"]),
+    season: Optional[str] = Query(
+        None,
+        description="Filtrar por temporada (ex.: 2026 ou 2026-2027)",
+        examples=["2026", "2026-2027"],
+    ),
     skip: int = Query(0, ge=0, description="Quantidade de registros para pular"),
     limit: int = Query(100, ge=1, le=1000, description="Quantidade máxima de registros"),
     db: Session = Depends(get_db),
@@ -173,6 +178,7 @@ def get_team_summary(team_id: int, db: Session = Depends(get_db)):
     "/",
     response_model=TeamResponse,
     status_code=201,
+    dependencies=[Depends(require_write_api_key)],
     summary="Criar time",
     description="Cria um novo time no banco de dados.",
 )
@@ -184,7 +190,7 @@ def create_team(team: TeamCreate, db: Session = Depends(get_db)):
         db.commit()
     except IntegrityError:
         db.rollback()
-        raise HTTPException(status_code=409, detail="Já existe um time com esse FBref ID")
+        raise HTTPException(status_code=409, detail="Já existe um time com esse ID externo")
     db.refresh(db_team)
     return db_team
 
@@ -192,6 +198,7 @@ def create_team(team: TeamCreate, db: Session = Depends(get_db)):
 @router.put(
     "/{team_id}",
     response_model=TeamResponse,
+    dependencies=[Depends(require_write_api_key)],
     summary="Atualizar time",
     description="Atualiza os dados de um time existente pelo seu ID.",
 )
@@ -212,7 +219,7 @@ def update_team(team_id: int, team: TeamUpdate, db: Session = Depends(get_db)):
         db.commit()
     except IntegrityError:
         db.rollback()
-        raise HTTPException(status_code=409, detail="Já existe um time com esse FBref ID")
+        raise HTTPException(status_code=409, detail="Já existe um time com esse ID externo")
     db.refresh(db_team)
     return db_team
 
@@ -220,6 +227,7 @@ def update_team(team_id: int, team: TeamUpdate, db: Session = Depends(get_db)):
 @router.delete(
     "/{team_id}",
     status_code=204,
+    dependencies=[Depends(require_write_api_key)],
     summary="Deletar time",
     description="Remove um time do banco de dados pelo seu ID.",
 )
@@ -247,9 +255,9 @@ def delete_team(team_id: int, db: Session = Depends(get_db)):
     "/scrape",
     response_model=List[TeamResponse],
     dependencies=[Depends(require_api_key), Depends(scrape_rate_limiter)],
-    summary="Scraping de times do FBref",
+    summary="Sincronização de times da ESPN",
     description="""
-    Busca times de uma liga específica no FBref e salva no banco de dados.
+    Busca times de uma liga específica na ESPN e salva no banco de dados.
 
     **Ligas suportadas:**
     - `Serie-A` (Brasileirão)
@@ -268,17 +276,24 @@ def delete_team(team_id: int, db: Session = Depends(get_db)):
 )
 def scrape_teams(
     league: str = Query(..., description="Código da liga (ex: Serie-A)", examples=["Serie-A"]),
-    season: str = Query("2024-2025", description="Temporada", examples=["2024-2025"]),
+    season: Optional[str] = Query(
+        None,
+        description="Temporada; se omitida, usa a temporada atual da liga",
+        examples=[current_season("Serie-A"), current_season("Premier-League")],
+    ),
     db: Session = Depends(get_db),
 ):
-    """Busca times de uma liga no FBref e salva no banco."""
+    """Busca times de uma liga na ESPN e salva no banco."""
     try:
+        season = resolve_season(league, season)
         service = FBrefService(db)
         teams = service.scrape_and_save_teams(league, season)
         return teams
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
     except requests.exceptions.RequestException as e:
-        logger.warning(f"Falha ao acessar o FBref ({league} {season}): {e}")
+        logger.warning(f"Falha ao acessar a ESPN ({league} {season}): {e}")
         raise HTTPException(
             status_code=502,
-            detail="Não foi possível acessar o FBref (proteção anti-bot ou falha de rede). Tente novamente mais tarde.",
+            detail="Não foi possível acessar a ESPN (falha de rede ou limite temporário). Tente novamente mais tarde.",
         )

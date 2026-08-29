@@ -1,6 +1,7 @@
 import pytest
 from unittest.mock import AsyncMock, patch
 from app.services.cloudbet import CloudbetService
+from app.config import settings
 
 
 @pytest.fixture
@@ -95,7 +96,7 @@ async def test_get_match_odds_found(cloudbet_service):
     ]
 
     with patch.object(cloudbet_service, "search_events", new=AsyncMock(return_value=events)):
-        result = await cloudbet_service.get_match_odds("Gremio", "Sao Paulo")
+        result = await cloudbet_service.get_match_odds("Grêmio", "São Paulo")
         assert result is not None
         assert result["event_id"] == 1
         assert result["home_team"] == "Gremio FB Porto Alegrense RS"
@@ -120,6 +121,50 @@ async def test_get_match_odds_not_found(cloudbet_service):
     with patch.object(cloudbet_service, "search_events", new=AsyncMock(return_value=events)):
         result = await cloudbet_service.get_match_odds("TimeInexistente", "OutroTime")
         assert result is None
+
+
+@pytest.mark.asyncio
+async def test_get_match_odds_rejects_ambiguous_results(cloudbet_service):
+    """Não escolhe arbitrariamente um evento quando há dois candidatos."""
+    events = [
+        {
+            "id": 1,
+            "name": "Gremio vs Sao Paulo",
+            "home": {"name": "Gremio FC"},
+            "away": {"name": "Sao Paulo FC"},
+        },
+        {
+            "id": 2,
+            "name": "Gremio vs Sao Paulo",
+            "home": {"name": "Gremio RS"},
+            "away": {"name": "Sao Paulo SP"},
+        },
+    ]
+
+    with patch.object(cloudbet_service, "search_events", new=AsyncMock(return_value=events)):
+        result = await cloudbet_service.get_match_odds("Gremio", "Sao Paulo")
+        assert result is None
+
+
+@pytest.mark.asyncio
+async def test_search_events_uses_configured_competition_limit(cloudbet_service, monkeypatch):
+    """O limite de chamadas da busca ampla deve ser explícito e configurável."""
+    competitions = [
+        {"key": f"competition-{index}", "name": f"Competição {index}", "eventCount": 1}
+        for index in range(3)
+    ]
+    monkeypatch.setattr(settings, "CLOUDBET_MAX_COMPETITIONS", 2)
+
+    with patch.object(cloudbet_service, "get_competitions", new=AsyncMock(return_value=competitions)):
+        with patch.object(
+            cloudbet_service,
+            "get_competition_events",
+            new=AsyncMock(return_value=[]),
+        ) as get_events:
+            result = await cloudbet_service.search_events()
+
+    assert result == []
+    assert get_events.await_count == 2
 
 
 @pytest.mark.asyncio

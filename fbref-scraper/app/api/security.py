@@ -1,7 +1,8 @@
-"""Segurança dos endpoints de scraping: chave de API e rate limiting.
+"""Segurança da API: autenticação de escrita e rate limiting.
 
-- **Autenticação**: exigida por padrão. O bypass só existe quando
-  ``ALLOW_UNAUTHENTICATED_SCRAPING`` estiver explicitamente ativado.
+- **Autenticação**: exigida por padrão. Os bypasses só existem quando
+  ``ALLOW_UNAUTHENTICATED_SCRAPING`` ou ``ALLOW_UNAUTHENTICATED_WRITES``
+  estiverem explicitamente ativados (somente desenvolvimento/testes).
   Com chave configurada, os clientes devem enviar o header ``X-API-Key``.
 - **Rate limiting**: janela deslizante. Por padrão é em memória (por processo);
   se ``REDIS_URL`` estiver configurada, usa Redis (distribuído entre workers).
@@ -14,7 +15,7 @@ import secrets
 import threading
 import time
 from collections import defaultdict, deque
-from typing import Callable, Deque, Dict
+from typing import Callable, Deque, Dict, Optional
 
 from fastapi import HTTPException, Request, Security
 from fastapi.security import APIKeyHeader
@@ -25,19 +26,23 @@ logger = logging.getLogger(__name__)
 api_key_header = APIKeyHeader(
     name="X-API-Key",
     scheme_name="ApiKeyAuth",
-    description="Chave configurada em `API_KEY` para acessar endpoints de scraping.",
+    description="Chave configurada em `API_KEY` para scraping e operações de escrita.",
     auto_error=False,
 )
 
 
-def require_api_key(x_api_key: str | None = Security(api_key_header)) -> None:
-    """Exige a chave de API, exceto quando o bypass foi explicitamente ativado."""
+def _validate_api_key(
+    x_api_key: str | None,
+    disabled_detail: str,
+    allow_unauthenticated: bool,
+) -> None:
+    """Valida a chave configurada para uma operação protegida."""
     if not settings.API_KEY:
-        if settings.ALLOW_UNAUTHENTICATED_SCRAPING:
+        if allow_unauthenticated:
             return
         raise HTTPException(
             status_code=503,
-            detail="Scraping desabilitado: configure a variável API_KEY.",
+            detail=disabled_detail,
         )
 
     if not x_api_key or not secrets.compare_digest(x_api_key, settings.API_KEY):
@@ -45,6 +50,24 @@ def require_api_key(x_api_key: str | None = Security(api_key_header)) -> None:
             status_code=401,
             detail="API key inválida ou ausente. Envie o header 'X-API-Key'.",
         )
+
+
+def require_api_key(x_api_key: str | None = Security(api_key_header)) -> None:
+    """Exige a chave de API para scraping."""
+    _validate_api_key(
+        x_api_key,
+        "Scraping desabilitado: configure a variável API_KEY.",
+        settings.ALLOW_UNAUTHENTICATED_SCRAPING,
+    )
+
+
+def require_write_api_key(x_api_key: str | None = Security(api_key_header)) -> None:
+    """Exige a chave de API para criar, atualizar ou excluir dados."""
+    _validate_api_key(
+        x_api_key,
+        "Operações de escrita desabilitadas: configure a variável API_KEY.",
+        settings.ALLOW_UNAUTHENTICATED_WRITES,
+    )
 
 
 class SlidingWindowRateLimiter:
@@ -91,39 +114,54 @@ class RedisSlidingWindowRateLimiter:
         limit: int,
         window_seconds: float,
         key_prefix: str = "scrape",
+        fallback: Optional[SlidingWindowRateLimiter] = None,
     ):
         self.redis = redis_client
         self.limit = limit
         self.window = window_seconds
         self.key_prefix = key_prefix
+        self.fallback = fallback or SlidingWindowRateLimiter(limit, window_seconds)
 
     def allow(self, key: str) -> bool:
         """Registra uma requisição; retorna False se o limite foi excedido.
 
-        Em caso de falha de conexão com o Redis, permite a requisição (fail-open)
-        para não derrubar a API — apenas registra o problema.
+        Em caso de falha de conexão com o Redis, usa o fallback local para
+        preservar alguma proteção sem derrubar a API.
         """
         now = time.time()
         rkey = f"rate_limit:{self.key_prefix}:{key}"
-        min_score = now - self.window
 
-        # Check-then-act não é atômico: em concorrência extrema pode haver um
-        # leve estouro do limite — aceitável para rate limiting.
         try:
-            with self.redis.pipeline() as pipe:
-                pipe.zremrangebyscore(rkey, "-inf", min_score)
-                pipe.zcard(rkey)
-                count = pipe.execute()[1]
-
-            if count >= self.limit:
-                return False
-
             member = f"{now}:{secrets.token_hex(6)}"
-            self.redis.zadd(rkey, {member: now})
-            self.redis.expire(rkey, int(self.window * 2) + 1)
+            result = self.redis.eval(
+                """
+                local now = tonumber(ARGV[1])
+                local window = tonumber(ARGV[2])
+                local limit = tonumber(ARGV[3])
+                local member = ARGV[4]
+                redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', now - window)
+                local count = redis.call('ZCARD', KEYS[1])
+                if count >= limit then
+                    redis.call('EXPIRE', KEYS[1], math.floor(window * 2) + 1)
+                    return 0
+                end
+                redis.call('ZADD', KEYS[1], now, member)
+                redis.call('EXPIRE', KEYS[1], math.floor(window * 2) + 1)
+                return 1
+                """,
+                1,
+                rkey,
+                str(now),
+                str(self.window),
+                str(self.limit),
+                member,
+            )
+            return int(result) == 1
         except Exception as e:  # noqa: BLE001
-            logger.warning(f"Falha no rate limiter Redis ({e}); permitindo requisição")
-        return True
+            # O fallback local mantém alguma proteção durante uma indisponibilidade
+            # do Redis, evitando um bypass ilimitado do rate limit.
+            logger.warning("Falha no rate limiter Redis (%s); usando fallback local", e)
+            return self.fallback.allow(key)
 
 
 def _limiter_dependency(limiter) -> Callable[[Request], None]:
@@ -141,15 +179,12 @@ def _limiter_dependency(limiter) -> Callable[[Request], None]:
     return dependency
 
 
-def build_scrape_rate_limiter() -> Callable[[Request], None]:
-    """Cria a dependência de rate limit para os endpoints de scraping.
+def build_rate_limiter(limit: int, window: int, key_prefix: str) -> Callable[[Request], None]:
+    """Cria uma dependência de rate limit, distribuída quando Redis está disponível.
 
     Usa Redis (distribuído) quando ``REDIS_URL`` está configurada; caso contrário,
     usa um limitador em memória (por processo).
     """
-    limit = settings.SCRAPE_RATE_LIMIT
-    window = settings.SCRAPE_RATE_WINDOW
-
     if settings.REDIS_URL:
         try:
             import redis as redis_lib
@@ -158,11 +193,28 @@ def build_scrape_rate_limiter() -> Callable[[Request], None]:
             return _limiter_dependency(SlidingWindowRateLimiter(limit, window))
 
         client = redis_lib.from_url(settings.REDIS_URL, decode_responses=True)
-        logger.info("Rate limiter Redis ativo")
-        return _limiter_dependency(RedisSlidingWindowRateLimiter(client, limit, window))
+        logger.info("Rate limiter Redis ativo para o grupo %s", key_prefix)
+        fallback = SlidingWindowRateLimiter(limit, window)
+        return _limiter_dependency(
+            RedisSlidingWindowRateLimiter(client, limit, window, key_prefix, fallback)
+        )
 
     return _limiter_dependency(SlidingWindowRateLimiter(limit, window))
 
 
-# Rate limiter padrão dos endpoints de scraping (configurável via variáveis de ambiente)
+def build_scrape_rate_limiter() -> Callable[[Request], None]:
+    """Mantém a fábrica pública do limitador de scraping."""
+    return build_rate_limiter(
+        settings.SCRAPE_RATE_LIMIT,
+        settings.SCRAPE_RATE_WINDOW,
+        "scrape",
+    )
+
+
+# Limitadores padrão (configuráveis via variáveis de ambiente).
 scrape_rate_limiter = build_scrape_rate_limiter()
+public_rate_limiter = build_rate_limiter(
+    settings.API_RATE_LIMIT,
+    settings.API_RATE_WINDOW,
+    "public",
+)
