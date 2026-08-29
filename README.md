@@ -1,8 +1,8 @@
 <div align="center">
 
-# ⚽ FBref Scraper
+# ⚽ ESPN Football API
 
-**API de scraping de dados de futebol do FBref, previsões de partidas com modelo Poisson e integração com odds da Cloudbet**
+**API de dados de futebol da ESPN, previsões de partidas com modelo Poisson e integração com odds da Cloudbet**
 
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?style=for-the-badge&logo=fastapi&logoColor=white)
 ![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)
@@ -19,15 +19,16 @@
 
 ## 📋 Sobre o Projeto
 
-Esta API coleta dados de futebol do **[FBref](https://fbref.com)**, gera **previsões de partidas** usando um modelo estatístico baseado na distribuição de Poisson e xG (gols esperados), e se integra com a **[Cloudbet](https://www.cloudbet.com)** para odds de apostas em tempo real.
+Esta API coleta dados de futebol da **ESPN**, gera **previsões de partidas** usando um modelo estatístico baseado na distribuição de Poisson e xG (gols esperados), e se integra com a **[Cloudbet](https://www.cloudbet.com)** para odds de apostas em tempo real.
 
 ### ✨ Funcionalidades
 
-- 🏟️ **Scraping de Times** - Busca times de ligas específicas
-- 👤 **Scraping de Jogadores** - Busca jogadores com estatísticas detalhadas
-- ⚽ **Scraping de Partidas** - Busca partidas com resultados e estatísticas
+- 🏟️ **Dados ESPN de Times** - Busca times de ligas específicas
+- 👤 **Dados ESPN de Jogadores** - Busca elencos atuais
+- ⚽ **Dados ESPN de Partidas** - Busca partidas com resultados e estatísticas
 - 📊 **Previsões Inteligentes** - Modelo Poisson baseado em xG com análise de mando de campo
 - 🎲 **Odds Cloudbet** - Integração em tempo real com a API da Cloudbet
+- 🖥️ **Painel React** - Dashboard responsivo para partidas, times, previsões e odds
 - 📚 **Documentação Interativa** - Swagger UI completo com exemplos
 - 🐳 **Docker Ready** - Deploy facilitado com Docker Compose
 
@@ -38,6 +39,7 @@ Esta API coleta dados de futebol do **[FBref](https://fbref.com)**, gera **previ
 ### Pré-requisitos
 
 - [Docker](https://www.docker.com/) e [Docker Compose](https://docs.docker.com/compose/)
+- [Node.js](https://nodejs.org/) 18+ para o painel React
 - Ou Python 3.10+ e PostgreSQL
 
 ### 🐳 Com Docker (recomendado)
@@ -47,15 +49,34 @@ Esta API coleta dados de futebol do **[FBref](https://fbref.com)**, gera **previ
 git clone https://github.com/Gledson2012/FBref-Scraper.git
 cd FBref-Scraper/fbref-scraper
 
-# Configure uma chave para habilitar os endpoints de scraping
-export API_KEY="uma-chave-forte"
+# Configure credenciais locais (substitua os valores do arquivo)
+cp .env.example .env
+# Defina POSTGRES_PASSWORD e API_KEY no arquivo .env
 
 # Suba os serviços (API + PostgreSQL)
 docker-compose up -d
 
 # Acesse a documentação
 open http://localhost:8000/docs
+
+# Sincronize times, partidas e elencos reais da ESPN
+docker compose exec api python scripts/sync_real_matches.py --league Serie-A --include-players
 ```
+
+### 🖥️ Painel React
+
+Com a API em execução, abra outro terminal:
+
+```bash
+cd FBref-Scraper/frontend
+npm install
+cp .env.example .env
+npm run dev
+```
+
+O painel estará disponível em `http://localhost:5173`. Ele consome a API em
+`http://localhost:8000/api/v1` por padrão; ajuste `VITE_API_URL` no `.env` se
+necessário.
 
 ### 🐍 Localmente
 
@@ -89,21 +110,21 @@ uvicorn app.main:app --reload
 ### 1️⃣ Scraping de Times
 
 ```bash
-curl -X POST "http://localhost:8000/api/v1/teams/scrape?league=Serie-A&season=2024-2025" \
+curl -X POST "http://localhost:8000/api/v1/teams/scrape?league=Serie-A" \
   -H "X-API-Key: uma-chave-forte"
 ```
 
 ### 2️⃣ Scraping de Jogadores
 
 ```bash
-curl -X POST "http://localhost:8000/api/v1/players/scrape?fbref_team_id=flamengo&season=2024-2025" \
+curl -X POST "http://localhost:8000/api/v1/players/scrape?fbref_team_id=flamengo" \
   -H "X-API-Key: uma-chave-forte"
 ```
 
 ### 3️⃣ Scraping de Partidas
 
 ```bash
-curl -X POST "http://localhost:8000/api/v1/matches/scrape?league=Serie-A&season=2024-2025" \
+curl -X POST "http://localhost:8000/api/v1/matches/scrape?league=Serie-A" \
   -H "X-API-Key: uma-chave-forte"
 ```
 
@@ -151,7 +172,7 @@ curl -X POST "http://localhost:8000/api/v1/predictions/" \
 | `POST` | `/teams/` | Cria um time |
 | `PUT` | `/teams/{id}` | Atualiza um time |
 | `DELETE` | `/teams/{id}` | Deleta um time |
-| `POST` | `/teams/scrape` | Scraping de times do FBref |
+| `POST` | `/teams/scrape` | Sincronização de times da ESPN |
 
 ### 👤 Jogadores (`/api/v1/players`)
 
@@ -162,7 +183,7 @@ curl -X POST "http://localhost:8000/api/v1/predictions/" \
 | `POST` | `/players/` | Cria um jogador |
 | `PUT` | `/players/{id}` | Atualiza um jogador |
 | `DELETE` | `/players/{id}` | Deleta um jogador |
-| `POST` | `/players/scrape` | Scraping de jogadores do FBref |
+| `POST` | `/players/scrape` | Sincronização de jogadores da ESPN |
 
 ### ⚽ Partidas (`/api/v1/matches`)
 
@@ -173,7 +194,7 @@ curl -X POST "http://localhost:8000/api/v1/predictions/" \
 | `POST` | `/matches/` | Cria uma partida |
 | `PUT` | `/matches/{id}` | Atualiza uma partida |
 | `DELETE` | `/matches/{id}` | Deleta uma partida |
-| `POST` | `/matches/scrape` | Scraping de partidas do FBref |
+| `POST` | `/matches/scrape` | Sincronização de partidas da ESPN |
 | `POST` | `/matches/{id}/scrape-stats` | Scraping de estatísticas da partida |
 | `GET` | `/matches/{id}/stats` | Lista estatísticas da partida |
 
@@ -208,22 +229,22 @@ curl -X POST "http://localhost:8000/api/v1/predictions/" \
 
 ## 🏆 Ligas Suportadas
 
-| Liga | Código API | Comp FBref |
-|------|-----------|------------|
-| 🇧🇷 Brasileirão Série A | `Serie-A` | `24` |
-| 🏴 Premier League | `Premier-League` | `9` |
-| 🇮🇹 Serie A (Itália) | `Serie-A-Italy` | `11` |
-| 🇪🇸 La Liga | `La-Liga` | `12` |
-| 🇩🇪 Bundesliga | `Bundesliga` | `20` |
-| 🇫🇷 Ligue 1 | `Ligue-1` | `13` |
-| 🇳🇱 Eredivisie | `Eredivisie` | `23` |
-| 🇵🇹 Primeira Liga | `Primeira-Liga` | `32` |
-| 🇺🇸 MLS | `MLS` | `22` |
-| 🇲🇽 Liga MX | `Liga-MX` | `31` |
-| 🌎 Libertadores | `Libertadores` | `18` |
-| 🌍 Champions League | `Champions-League` | `8` |
+| Liga | Código API ESPN |
+|------|----------------|
+| 🇧🇷 Brasileirão Série A | `bra.1` |
+| 🏴 Premier League | `eng.1` |
+| 🇮🇹 Serie A (Itália) | `ita.1` |
+| 🇪🇸 La Liga | `esp.1` |
+| 🇩🇪 Bundesliga | `ger.1` |
+| 🇫🇷 Ligue 1 | `fra.1` |
+| 🇳🇱 Eredivisie | `ned.1` |
+| 🇵🇹 Primeira Liga | `por.1` |
+| 🇺🇸 MLS | `usa.1` |
+| 🇲🇽 Liga MX | `mex.1` |
+| 🌎 Libertadores | `conmebol.libertadores` |
+| 🌍 Champions League | `uefa.champions` |
 
-> O **Código API** é o valor usado na query string dos endpoints de scraping; o **Comp FBref** é o ID numérico da competição em `fbref.com/en/comps/{ID}/`.
+> O **Código API** é o valor usado na query string dos endpoints de sincronização. Os dados são obtidos pelos endpoints JSON públicos da ESPN. Se `season` for omitida, a API calcula a temporada vigente: ano civil para Brasileirão/Libertadores/MLS e `AAAA-AAAA` para as demais competições.
 
 ---
 
@@ -234,10 +255,11 @@ curl -X POST "http://localhost:8000/api/v1/predictions/" \
 | [FastAPI](https://fastapi.tiangolo.com/) | Framework web de alta performance |
 | [SQLAlchemy 2.0](https://www.sqlalchemy.org/) | ORM para banco de dados |
 | [PostgreSQL](https://www.postgresql.org/) | Banco de dados relacional |
-| [BeautifulSoup](https://www.crummy.com/software/BeautifulSoup/) | Scraping do FBref |
+| [Requests](https://requests.readthedocs.io/) | Cliente HTTP para a API ESPN |
 | [Pydantic](https://docs.pydantic.dev/) | Validação de dados |
 | [Docker](https://www.docker.com/) | Containerização |
 | [Poetry](https://python-poetry.org/) | Gerenciamento de dependências |
+| [React + Vite](https://vitejs.dev/) | Painel web responsivo |
 
 ---
 
@@ -255,7 +277,7 @@ FBref-Scraper/
 │   │   │   └── odds.py      # Endpoints de odds
 │   │   ├── models/          # Modelos SQLAlchemy
 │   │   ├── schemas/         # Schemas Pydantic
-│   │   ├── scrapers/        # Scrapers do FBref
+│   │   ├── scrapers/        # Clientes da ESPN
 │   │   ├── services/        # Serviços de negócio
 │   │   ├── main.py          # Ponto de entrada
 │   │   ├── config.py        # Configurações
@@ -264,6 +286,11 @@ FBref-Scraper/
 │   ├── Dockerfile
 │   ├── docker-compose.yml
 │   └── requirements.txt
+├── frontend/                 # Painel React/Vite
+│   ├── src/components/       # Navegação e componentes reutilizáveis
+│   ├── src/pages/            # Dashboard, partidas, times, previsões e odds
+│   ├── src/lib/              # Cliente HTTP e formatadores
+│   └── README.md
 ├── pyproject.toml           # Configuração Poetry (empacota o módulo `app`)
 └── README.md
 ```
@@ -293,7 +320,7 @@ As configurações podem ser definidas via variáveis de ambiente ou arquivo `.e
 |----------|-----------|--------|
 | `DATABASE_URL` | URL do banco de dados | `postgresql://postgres:postgres@localhost:5432/fbref_scraper` |
 | `API_V1_PREFIX` | Prefixo da API | `/api/v1` |
-| `PROJECT_NAME` | Nome do projeto | `FBref Scraper` |
+| `PROJECT_NAME` | Nome do projeto | `ESPN Football API` |
 | `DEBUG` | Modo debug | `false` |
 | `CORS_ORIGINS` | Origens permitidas separadas por vírgula | vazio |
 | `AUTO_CREATE_SCHEMA` | Cria tabelas sem Alembic (somente desenvolvimento) | `false` |
@@ -302,29 +329,36 @@ As configurações podem ser definidas via variáveis de ambiente ou arquivo `.e
 | `USER_AGENT` | User-Agent para scraping | Chrome UA |
 | `CLOUDBET_API_KEY` | Chave de API da Cloudbet | vazio |
 | `CLOUDBET_BASE_URL` | URL base da API Cloudbet | `https://sports-api.cloudbet.com/v2` |
-| `API_KEY` | Chave de API obrigatória para endpoints de scraping | vazio |
+| `API_KEY` | Chave para scraping e operações de escrita | vazio |
 | `ALLOW_UNAUTHENTICATED_SCRAPING` | Libera scraping sem chave (somente desenvolvimento) | `false` |
+| `ALLOW_UNAUTHENTICATED_WRITES` | Libera escrita sem chave (somente desenvolvimento) | `false` |
 | `SCRAPE_RATE_LIMIT` | Máx. requisições de scraping por IP por janela | `30` |
 | `SCRAPE_RATE_WINDOW` | Janela do rate limit (s) | `60` |
+| `API_RATE_LIMIT` | Máx. requisições públicas por IP por janela | `120` |
+| `API_RATE_WINDOW` | Janela do rate limit público (s) | `60` |
 | `REDIS_URL` | URL do Redis para rate limit distribuído (vazio = em memória) | vazio |
+| `CLOUDBET_MAX_COMPETITIONS` | Máximo de competições consultadas sem filtro | `20` |
 | `CACHE_ENABLED` | Habilita o cache em disco dos scrapers | `true` |
 | `CACHE_TTL_SECONDS` | TTL do cache em disco dos scrapers (s) | `3600` |
 | `CACHE_DIR` | Diretório do cache em disco (vazio = temp do sistema) | vazio |
 
 ---
 
-## 🔒 Segurança dos Endpoints de Scraping
+## 🔒 Segurança da API
 
-Os endpoints de scraping (`/teams/scrape`, `/players/scrape`, `/matches/scrape` e `/matches/{id}/scrape-stats`) possuem:
+Os endpoints de scraping e todas as operações de escrita do CRUD possuem:
 
-- **Autenticação via API key** — configure `API_KEY` e envie o header `X-API-Key: <sua-chave>`; sem a configuração, os endpoints respondem `503`.
-- Para desenvolvimento local, o bypass precisa ser explícito com `ALLOW_UNAUTHENTICATED_SCRAPING=true`.
+- **Autenticação via API key** — configure `API_KEY` e envie o header `X-API-Key: <sua-chave>`; sem a configuração, as operações protegidas respondem `503`.
+- O bypass de scraping e de escrita são independentes e devem ser explicitados somente em desenvolvimento, respectivamente com `ALLOW_UNAUTHENTICATED_SCRAPING=true` e `ALLOW_UNAUTHENTICATED_WRITES=true`.
 - **Rate limiting por IP** — limite de `SCRAPE_RATE_LIMIT` requisições por janela de `SCRAPE_RATE_WINDOW` segundos (padrão: 30/min). Acima do limite, responde `429`.
+- Os endpoints públicos de odds também possuem o limitador de `API_RATE_LIMIT`/`API_RATE_WINDOW`.
 
-> Por padrão o rate limit é **em memória** (por processo). Configure `REDIS_URL` (ou use o `docker-compose`, que já sobe o Redis) para um rate limit **distribuído** entre workers. Se o Redis falhar, as requisições são permitidas (fail-open).
+> Por padrão o rate limit é **em memória** (por processo). Configure `REDIS_URL` (ou use o `docker-compose`, que já sobe o Redis) para um rate limit **distribuído** entre workers. Se o Redis falhar, cada processo usa um fallback local limitado.
+
+O endpoint `/health` também valida a conectividade com o banco e retorna `503` quando o banco está indisponível.
 
 ```bash
-curl -X POST "http://localhost:8000/api/v1/teams/scrape?league=Serie-A&season=2024-2025" \
+curl -X POST "http://localhost:8000/api/v1/teams/scrape?league=Serie-A" \
   -H "X-API-Key: sua-chave"
 ```
 
@@ -347,7 +381,7 @@ poetry run alembic revision --autogenerate -m "descrição da mudança"
 > Em bancos novos, execute `alembic upgrade head` antes de iniciar a API. A inicialização ainda executa `create_all` como rede de segurança (não altera tabelas existentes).
 
 ```bash
-curl -X POST "http://localhost:8000/api/v1/teams/scrape?league=Serie-A&season=2024-2025" \
+curl -X POST "http://localhost:8000/api/v1/teams/scrape?league=Serie-A" \
   -H "X-API-Key: sua-chave"
 ```
 
@@ -381,9 +415,9 @@ Este projeto está licenciado sob a licença **MIT**. Veja o arquivo [LICENSE](L
 
 ## ⚠️ Aviso Legal
 
-Este projeto é para fins **educacionais**. O FBref é um site com direitos autorais. Respeite os termos de serviço do site e não faça scraping agressivo. Use o `REQUEST_DELAY` para evitar sobrecarregar o servidor.
+Este projeto é para fins **educacionais**. Respeite os termos de uso da ESPN e use o `REQUEST_DELAY` para evitar sobrecarregar o serviço.
 
-> **Importante sobre scraping:** o FBref utiliza proteção anti-bot (Cloudflare) e pode responder **HTTP 403** para requisições automatizadas, mesmo com User-Agent de navegador. Nesse caso, os endpoints de scraping retornam `502` com mensagem clara. Para dados em tempo real, utilize a integração de odds da Cloudbet. Para scraping, considere executar a partir de um IP residencial ou usar um navegador headless.
+> A coleta atual usa os endpoints JSON públicos da ESPN. O campo de banco `fbref_id` é mantido apenas por compatibilidade e armazena o ID externo da ESPN.
 
 ---
 
