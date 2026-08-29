@@ -88,6 +88,74 @@ export interface TeamSummary {
   stats_available: number
 }
 
+export interface CatalogOption {
+  code: string
+  name: string
+}
+
+export interface Catalog {
+  competitions: CatalogOption[]
+  seasons: string[]
+  positions: string[]
+  nationalities: string[]
+  countries: string[]
+}
+
+export interface SyncResourceStatus {
+  resource: 'teams' | 'players' | 'matches' | 'stats'
+  count: number
+  last_updated_at: string | null
+  source: string
+}
+
+export interface SyncStatus {
+  generated_at: string
+  resources: SyncResourceStatus[]
+}
+
+export interface OverviewMatch {
+  id: number
+  home_team_id: number
+  away_team_id: number
+  home_team: string
+  away_team: string
+  competition: string | null
+  season: string | null
+  match_date: string | null
+  home_score: number | null
+  away_score: number | null
+}
+
+export interface Overview {
+  generated_at: string
+  competition: string | null
+  season: string | null
+  totals: {
+    teams: number
+    players: number
+    matches: number
+    completed_matches: number
+    upcoming_matches: number
+    stats: number
+  }
+  next_matches: OverviewMatch[]
+  recent_matches: OverviewMatch[]
+}
+
+export interface SearchResult {
+  type: 'team' | 'player' | 'match'
+  id: number
+  title: string
+  subtitle: string | null
+  path: string
+}
+
+export interface SearchResponse {
+  query: string
+  results: SearchResult[]
+  total: number
+}
+
 export interface PredictionRequest {
   home_team_id: number
   away_team_id: number

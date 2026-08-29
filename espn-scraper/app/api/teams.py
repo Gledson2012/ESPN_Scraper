@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.api.security import require_api_key, require_write_api_key, scrape_rate_limiter
 from app.database import get_db
 from app.models import Match, MatchStats, Player, Team
-from app.schemas import MatchResponse, PlayerResponse, TeamCreate, TeamSummaryResponse, TeamUpdate, TeamResponse
+from app.schemas import MatchListResponse, PlayerResponse, TeamCreate, TeamSummaryResponse, TeamUpdate, TeamResponse
 from app.seasons import current_season, resolve_season
 from app.services.fbref import FBrefService
 
@@ -88,7 +88,7 @@ def list_team_players(
 
 @router.get(
     "/{team_id}/matches",
-    response_model=List[MatchResponse],
+    response_model=List[MatchListResponse],
     summary="Listar partidas do time",
     description="Retorna partidas em que o time participou, como mandante ou visitante.",
 )
@@ -124,15 +124,25 @@ def list_team_matches(
     summary="Resumo de desempenho do time",
     description="Calcula campanha, gols, pontos e disponibilidade de estatísticas do time.",
 )
-def get_team_summary(team_id: int, db: Session = Depends(get_db)):
+def get_team_summary(
+    team_id: int,
+    competition: Optional[str] = Query(None, description="Filtrar por competição", examples=["Serie-A"]),
+    season: Optional[str] = Query(None, description="Filtrar por temporada", examples=["2026"]),
+    db: Session = Depends(get_db),
+):
     """Retorna um resumo de desempenho baseado nos placares cadastrados."""
     team = db.query(Team).filter(Team.id == team_id).first()
     if not team:
         raise HTTPException(status_code=404, detail="Time não encontrado")
 
-    matches = db.query(Match).filter(
+    match_query = db.query(Match).filter(
         (Match.home_team_id == team_id) | (Match.away_team_id == team_id)
-    ).all()
+    )
+    if competition:
+        match_query = match_query.filter(Match.competition == competition)
+    if season:
+        match_query = match_query.filter(Match.season == season)
+    matches = match_query.all()
     completed = [
         match for match in matches
         if match.home_score is not None and match.away_score is not None

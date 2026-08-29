@@ -91,14 +91,19 @@ class MatchUpdate(BaseModel):
         return self
 
 
-class MatchResponse(MatchBase):
-    """Resposta com dados de uma partida."""
+class MatchListResponse(MatchBase):
+    """Resposta resumida usada em listagens de partidas."""
 
     model_config = ConfigDict(from_attributes=True)
 
     id: int = Field(..., description="ID único da partida")
     created_at: datetime = Field(..., description="Data de criação do registro")
     updated_at: datetime = Field(..., description="Data da última atualização")
+
+
+class MatchResponse(MatchListResponse):
+    """Resposta detalhada de uma partida."""
+
     stats: List[MatchStatsResponse] = Field(default_factory=list, description="Estatísticas da partida")
 
 

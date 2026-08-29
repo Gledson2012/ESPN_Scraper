@@ -79,8 +79,9 @@ jobs:
       env:
         # GitHub Pages publica em https://<owner>.github.io/<repo>/
         VITE_BASE: /${{ github.event.repository.name }}/
-        # Defina a variável de repositório PUBLIC_API_URL (Settings →
-        # Variables → Actions) com a URL da API publicada (ex.: Railway).
+        # Defina PUBLIC_API_URL (Settings → Variables → Actions) com o domínio
+        # ou a URL completa da API publicada (ex.: Railway). O frontend normaliza
+        # automaticamente o sufixo /api/v1.
         VITE_API_URL: ${{ vars.PUBLIC_API_URL }}
 
     - name: Upload Pages artifact

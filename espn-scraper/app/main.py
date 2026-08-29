@@ -8,7 +8,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.config import settings
 from app.database import Base, engine
-from app.api import teams_router, players_router, matches_router, predictions_router, odds_router, stats_router
+from app.api import teams_router, players_router, matches_router, predictions_router, odds_router, stats_router, discovery_router
 
 # Configurar logging
 logging.basicConfig(
@@ -183,6 +183,7 @@ app.include_router(matches_router, prefix=settings.API_V1_PREFIX)
 app.include_router(predictions_router, prefix=settings.API_V1_PREFIX)
 app.include_router(stats_router, prefix=settings.API_V1_PREFIX)
 app.include_router(odds_router, prefix=settings.API_V1_PREFIX)
+app.include_router(discovery_router, prefix=settings.API_V1_PREFIX)
 
 
 @app.get(
@@ -201,6 +202,10 @@ def api_v1_root():
             "stats": f"{settings.API_V1_PREFIX}/stats",
             "predictions": f"{settings.API_V1_PREFIX}/predictions",
             "odds": f"{settings.API_V1_PREFIX}/odds",
+            "overview": f"{settings.API_V1_PREFIX}/overview",
+            "sync_status": f"{settings.API_V1_PREFIX}/sync/status",
+            "catalog": f"{settings.API_V1_PREFIX}/catalog",
+            "search": f"{settings.API_V1_PREFIX}/search",
         },
         "docs": "/docs",
     }

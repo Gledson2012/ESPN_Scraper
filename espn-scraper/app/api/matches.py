@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.api.security import require_api_key, require_write_api_key, scrape_rate_limiter, public_rate_limiter
 from app.database import get_db
 from app.models import Match, MatchStats, Team
-from app.schemas import MatchCreate, MatchStatsResponse, MatchUpdate, MatchResponse, LiveMatchResponse
+from app.schemas import MatchCreate, MatchListResponse, MatchStatsResponse, MatchUpdate, MatchResponse, LiveMatchResponse
 from app.scrapers.espn import ESPN_LEAGUE_SLUGS, MatchesScraper
 from app.seasons import current_season, resolve_season
 from app.services.fbref import FBrefService
@@ -22,7 +22,7 @@ router = APIRouter(prefix="/matches", tags=["Partidas"])
 
 @router.get(
     "/",
-    response_model=List[MatchResponse],
+    response_model=List[MatchListResponse],
     summary="Listar partidas",
     description="""
     Retorna uma lista de partidas com filtros opcionais.

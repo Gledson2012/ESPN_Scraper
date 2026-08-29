@@ -1,5 +1,6 @@
 import { Search, Shield, Users } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { LoadingState } from '../components/LoadingState'
 import { PageHeader } from '../components/PageHeader'
 import { api } from '../lib/api'
@@ -39,9 +40,10 @@ function PlayerPhoto({ player }: { player: Player }) {
 }
 
 export function PlayersPage() {
+  const [searchParams] = useSearchParams()
   const [players, setPlayers] = useState<Player[]>([])
   const [teams, setTeams] = useState<Team[]>([])
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useState(searchParams.get('search') || '')
   const [selectedTeamId, setSelectedTeamId] = useState('all')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -63,6 +65,10 @@ export function PlayersPage() {
   }, [])
 
   useEffect(() => { loadPlayers() }, [loadPlayers])
+
+  useEffect(() => {
+    setSearch(searchParams.get('search') || '')
+  }, [searchParams])
 
   const teamNames = useMemo(() => new Map(teams.map((team) => [team.id, team.name])), [teams])
   const filteredPlayers = useMemo(() => {

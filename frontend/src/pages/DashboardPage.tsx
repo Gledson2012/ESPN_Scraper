@@ -30,6 +30,8 @@ export function DashboardPage() {
 
   if (!data) return <LoadingState label="Preparando seu painel..." />
 
+  const totals = data.overview?.totals
+
   return (
     <>
       {data.demo && <DemoNotice />}
@@ -41,9 +43,9 @@ export function DashboardPage() {
       />
 
       <section className="stats-grid">
-        <StatCard label={data.demo ? 'Jogos na agenda' : 'Partidas analisadas'} value={data.matches.length} note={data.demo ? 'Snapshot real do dia' : 'Base disponível'} icon={Trophy} tone="green" />
-        <StatCard label={data.demo ? 'Clubes na agenda' : 'Times monitorados'} value={data.teams.length} note={data.demo ? 'Nos próximos confrontos' : 'Em todas as competições'} icon={Shield} tone="blue" />
-        <StatCard label="Jogos encerrados" value={finished.length} note="Com resultado registrado" icon={Activity} tone="orange" />
+        <StatCard label={data.demo ? 'Jogos na agenda' : 'Partidas analisadas'} value={totals?.matches ?? data.matches.length} note={data.demo ? 'Snapshot real do dia' : 'Base disponível'} icon={Trophy} tone="green" />
+        <StatCard label={data.demo ? 'Clubes na agenda' : 'Times monitorados'} value={totals?.teams ?? data.teams.length} note={data.demo ? 'Nos próximos confrontos' : 'Em todas as competições'} icon={Shield} tone="blue" />
+        <StatCard label="Jogos encerrados" value={totals?.completed_matches ?? finished.length} note="Com resultado registrado" icon={Activity} tone="orange" />
         <StatCard label="Eventos de odds" value={data.odds.length} note={data.demo ? 'Cotações aguardando conexão' : 'Eventos com odds'} icon={CircleDollarSign} tone="purple" />
       </section>
 

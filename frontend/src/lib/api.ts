@@ -1,9 +1,19 @@
 import { mockMatches, mockOdds, mockTeams } from '../data/mockData'
-import type { LiveMatch, Match, MatchStats, OddsEvent, Player, Prediction, PredictionRequest, SoccerOddsResponse, Team, TeamSummary } from '../types/api'
+import type { Catalog, LiveMatch, Match, MatchStats, OddsEvent, Overview, Player, Prediction, PredictionRequest, SearchResponse, SoccerOddsResponse, SyncStatus, Team, TeamSummary } from '../types/api'
 
 const browserHost = typeof window !== 'undefined' ? window.location.hostname : 'localhost'
 const configuredApiUrl = import.meta.env.VITE_API_URL?.trim()
-const API_URL = (configuredApiUrl || (!import.meta.env.PROD ? `http://${browserHost}:8000/api/v1` : '')).replace(/\/$/, '')
+
+function normalizeApiUrl(value?: string): string {
+  if (!value) return ''
+
+  const normalized = value.replace(/\/+$/, '')
+  return normalized.endsWith('/api/v1') ? normalized : `${normalized}/api/v1`
+}
+
+const API_URL = normalizeApiUrl(
+  configuredApiUrl || (!import.meta.env.PROD ? `http://${browserHost}:8000/api/v1` : ''),
+)
 const REQUEST_TIMEOUT_MS = 15_000
 
 export class ApiError extends Error {
@@ -81,6 +91,28 @@ export const api = {
     return expectObject<TeamSummary>(await request<unknown>(`/teams/${teamId}/summary`), 'resumo do time')
   },
 
+  async getOverview(competition?: string, season?: string): Promise<Overview> {
+    const params = new URLSearchParams()
+    if (competition) params.set('competition', competition)
+    if (season) params.set('season', season)
+    const query = params.toString()
+    return expectObject<Overview>(await request<unknown>(`/overview${query ? `?${query}` : ''}`), 'resumo do painel')
+  },
+
+  async getSyncStatus(): Promise<SyncStatus> {
+    return expectObject<SyncStatus>(await request<unknown>('/sync/status'), 'status da sincronização')
+  },
+
+  async getCatalog(): Promise<Catalog> {
+    return expectObject<Catalog>(await request<unknown>('/catalog'), 'catálogo de filtros')
+  },
+
+  async search(query: string, types?: Array<'team' | 'player' | 'match'>, limit = 10): Promise<SearchResponse> {
+    const params = new URLSearchParams({ q: query, limit: String(limit) })
+    if (types?.length) params.set('types', types.join(','))
+    return expectObject<SearchResponse>(await request<unknown>(`/search?${params.toString()}`), 'busca')
+  },
+
   async getPlayers(teamId?: number): Promise<Player[]> {
     const params = new URLSearchParams({ limit: '1000' })
     if (teamId) params.set('team_id', String(teamId))
@@ -125,14 +157,16 @@ export interface DashboardData {
   teams: Team[]
   matches: Match[]
   odds: OddsEvent[]
+  overview: Overview | null
   demo: boolean
 }
 
 export async function loadDashboardData(): Promise<DashboardData> {
-  const [teamsResult, matchesResult, oddsResult] = await Promise.allSettled([
+  const [teamsResult, matchesResult, oddsResult, overviewResult] = await Promise.allSettled([
     api.getTeams(),
     api.getMatches(),
     api.getOdds(),
+    api.getOverview(),
   ])
 
   const realTeams = teamsResult.status === 'fulfilled' ? teamsResult.value : []
@@ -143,12 +177,14 @@ export async function loadDashboardData(): Promise<DashboardData> {
   const teams = useTeamSnapshot ? mockTeams : realTeams
   const matches = useMatchSnapshot ? mockMatches : realMatches
   const odds = realOdds.length ? realOdds : mockOdds
+  const overview = overviewResult.status === 'fulfilled' ? overviewResult.value : null
   const emptyResponse = useTeamSnapshot || useMatchSnapshot || !realOdds.length
 
   return {
     teams,
     matches,
     odds,
+    overview,
     demo: [teamsResult, matchesResult, oddsResult].some((result) => result.status === 'rejected') || emptyResponse,
   }
 }

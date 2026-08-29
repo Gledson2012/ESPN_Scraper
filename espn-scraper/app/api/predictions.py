@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.api.security import public_rate_limiter
 from app.models import Match, MatchStats, Team
 from app.schemas import PredictionRequest, PredictionResponse
 
@@ -21,6 +22,7 @@ MAX_LAMBDA = 10.0
 @router.post(
     "/",
     response_model=PredictionResponse,
+    dependencies=[Depends(public_rate_limiter)],
     summary="Gerar previsão de partida",
     description="""
     Gera uma previsão para uma partida entre dois times usando um **modelo Poisson** baseado nas estatísticas históricas.

@@ -1,15 +1,27 @@
 import { FormEvent, useState } from 'react'
 import { Bell, Menu, Search } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { api } from '../lib/api'
 
 export function Topbar({ onMenu }: { onMenu: () => void }) {
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
+  const [searching, setSearching] = useState(false)
 
-  function handleSearch(event: FormEvent) {
+  async function handleSearch(event: FormEvent) {
     event.preventDefault()
     const value = query.trim()
-    if (value) navigate(`/partidas?search=${encodeURIComponent(value)}`)
+    if (!value || searching) return
+
+    setSearching(true)
+    try {
+      const response = await api.search(value, undefined, 1)
+      navigate(response.results[0]?.path || `/partidas?search=${encodeURIComponent(value)}`)
+    } catch {
+      navigate(`/partidas?search=${encodeURIComponent(value)}`)
+    } finally {
+      setSearching(false)
+    }
   }
 
   return (
@@ -18,7 +30,7 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
       <div className="topbar-context"><span>SCOUTLY</span><strong>Centro de inteligência</strong></div>
       <form className="topbar-search" role="search" onSubmit={handleSearch}>
         <Search size={17} />
-        <input aria-label="Buscar partidas ou times" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar partidas ou times" />
+        <input aria-label="Buscar partidas, times ou jogadores" aria-busy={searching} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar partidas, times ou jogadores" />
         <kbd>⌘ K</kbd>
       </form>
       <div className="topbar-actions">

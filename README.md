@@ -226,6 +226,15 @@ curl -X POST "http://localhost:8000/api/v1/predictions/" \
 | `GET` | `/odds/event/{event_id}` | Odds de um evento pelo ID |
 | `GET` | `/odds/event/{event_id}/markets` | Mercados de apostas |
 
+### 🔎 Descoberta e monitoramento (`/api/v1`)
+
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| `GET` | `/overview` | KPIs e partidas recentes/próximas do painel |
+| `GET` | `/sync/status` | Quantidade e última atualização de cada recurso |
+| `GET` | `/catalog` | Competições, temporadas, posições e países para filtros |
+| `GET` | `/search?q=...` | Busca global de times, jogadores e partidas |
+
 ---
 
 ## 🏆 Ligas Suportadas
@@ -436,6 +445,10 @@ A URL da API consumida pelo frontend vem da variável de repositório `PUBLIC_AP
 dados ao vivo. Sem ela, o CI publica o frontend em modo demonstração, sem tentar
 acessar `localhost`.
 
+Informe o domínio da API ou, preferencialmente, o endereço completo com o prefixo:
+`https://seu-dominio.up.railway.app/api/v1`. O frontend normaliza o prefixo
+automaticamente quando apenas o domínio é informado.
+
 ### API — Railway
 
 O repositório já inclui [`railway.json`](railway.json) (builder Dockerfile, healthcheck em `/health`).
@@ -450,7 +463,7 @@ O repositório já inclui [`railway.json`](railway.json) (builder Dockerfile, he
    | `API_KEY` | chave forte (scraping/escrita) |
    | `CORS_ORIGINS` | `https://gledson2012.github.io` |
 4. Gere a URL pública (**Settings → Networking → Generate Domain**)
-5. Volte ao GitHub e crie a variável `PUBLIC_API_URL` com essa URL (passo do frontend acima)
+5. Volte ao GitHub e crie a variável `PUBLIC_API_URL` com `https://seu-dominio.up.railway.app/api/v1`
 
 A imagem Docker também é publicada automaticamente em `ghcr.io/gledson2012/espn_scraper` pelo job `build` do CI.
 
@@ -465,7 +478,7 @@ O repositório inclui [`render.yaml`](render.yaml) (blueprint do Render). Sem ca
    - `REDIS_URL` pode ficar vazia: o rate limit funciona em memória
    - `API_KEY` é gerada automaticamente pelo Render (copie depois para usar nos scrapes)
 4. Após o deploy, copie a URL pública (`https://fbref-api-xxxx.onrender.com`) e crie a
-   variável `PUBLIC_API_URL` no GitHub (passo do frontend acima)
+   variável `PUBLIC_API_URL` no GitHub com `https://fbref-api-xxxx.onrender.com/api/v1`
 
 > **Custos x limites do free tier:** tudo gratuito. A API "adormece" após ~15 min sem
 > uso e leva ~1 min para responder na primeira requisição. Evite sincronizações muito

@@ -12,6 +12,8 @@ npm run dev
 
 O painel estará disponível em `http://localhost:5173`. Por padrão, ele consome
 `http://localhost:8000/api/v1`; altere `VITE_API_URL` no `.env` quando necessário.
+Em produção, `VITE_API_URL` pode ser o domínio da API ou o endereço completo com
+`/api/v1`; o cliente adiciona esse prefixo automaticamente quando necessário.
 
 ## Estrutura
 
