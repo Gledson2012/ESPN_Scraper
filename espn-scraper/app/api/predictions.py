@@ -127,10 +127,13 @@ def predict_match(
     # Probabilidade de ambos marcarem (BTTS)
     btts_prob = (1 - math.exp(-home_lambda)) * (1 - math.exp(-away_lambda))
 
-    # Confiança baseada na quantidade de dados
-    home_samples = sum(1 for stat in home_stats if _has_usable_stat(stat))
-    away_samples = sum(1 for stat in away_stats if _has_usable_stat(stat))
-    confidence = min(0.95, 0.5 + home_samples * 0.01 + away_samples * 0.01)
+    # Confiança baseada na quantidade de dados e tipo de fonte
+    home_xg_samples = sum(1 for stat in home_stats if _is_valid_metric(stat.xg))
+    away_xg_samples = sum(1 for stat in away_stats if _is_valid_metric(stat.xg))
+    home_goal_samples = sum(1 for stat in home_stats if _has_usable_stat(stat))
+    away_goal_samples = sum(1 for stat in away_stats if _has_usable_stat(stat))
+    # Dados de xG têm mais peso; gols reais têm peso menor
+    confidence = min(0.95, 0.4 + home_xg_samples * 0.015 + away_xg_samples * 0.015 + home_goal_samples * 0.005 + away_goal_samples * 0.005)
 
     return PredictionResponse(
         home_team_id=request.home_team_id,
@@ -201,6 +204,7 @@ def _calculate_attack_strength(
 
     Diferencia se as estatísticas são de jogos em casa ou fora.
     Se não houver dados para o mando informado, usa todas as partidas.
+    Usa xG quando disponível, senão usa gols reais da partida.
     """
     if not stats:
         return 1.0
@@ -209,18 +213,26 @@ def _calculate_attack_strength(
     if not subset:
         subset = stats  # fallback: usa todas as partidas
 
-    total_xg = 0
+    total_goals = 0.0
     matches = 0
 
     for stat in subset:
+        # Preferir xG quando disponível
         if _is_valid_metric(stat.xg):
-            total_xg += stat.xg
+            total_goals += stat.xg
+            matches += 1
+        elif stat.match and stat.match.home_score is not None and stat.match.away_score is not None:
+            # Fallback: usar gols reais da partida
+            if stat.is_home:
+                total_goals += stat.match.home_score
+            else:
+                total_goals += stat.match.away_score
             matches += 1
 
     if matches == 0:
         return 1.0
 
-    avg_goals_for = total_xg / matches
+    avg_goals_for = total_goals / matches
     # Força relativa (1.0 = média da liga)
     return avg_goals_for / max(0.1, average_goals_per_team)
 
@@ -235,6 +247,7 @@ def _calculate_defense_strength(
 
     Diferencia se as estatísticas são de jogos em casa ou fora.
     Se não houver dados para o mando informado, usa todas as partidas.
+    Usa xG contra quando disponível, senão usa gols sofridos reais.
     """
     if not stats:
         return 1.0
@@ -243,18 +256,26 @@ def _calculate_defense_strength(
     if not subset:
         subset = stats  # fallback: usa todas as partidas
 
-    total_xg_against = 0
+    total_goals_against = 0.0
     matches = 0
 
     for stat in subset:
+        # Preferir xG contra quando disponível
         if _is_valid_metric(stat.xg_against):
-            total_xg_against += stat.xg_against
+            total_goals_against += stat.xg_against
+            matches += 1
+        elif stat.match and stat.match.home_score is not None and stat.match.away_score is not None:
+            # Fallback: usar gols sofridos reais da partida
+            if stat.is_home:
+                total_goals_against += stat.match.away_score
+            else:
+                total_goals_against += stat.match.home_score
             matches += 1
 
     if matches == 0:
         return 1.0
 
-    avg_goals_against = total_xg_against / matches
+    avg_goals_against = total_goals_against / matches
     # Força relativa (1.0 = média da liga)
     return avg_goals_against / max(0.1, average_goals_per_team)
 
@@ -265,7 +286,14 @@ def _is_valid_metric(value: float | None) -> bool:
 
 
 def _has_usable_stat(stat: MatchStats) -> bool:
-    return _is_valid_metric(stat.xg) or _is_valid_metric(stat.xg_against)
+    """Verifica se a estatística tem dados utilizáveis (xG ou gols reais)."""
+    if _is_valid_metric(stat.xg) or _is_valid_metric(stat.xg_against):
+        return True
+    # Fallback: usar gols reais da partida quando xG não disponível
+    match = stat.match
+    if match and match.home_score is not None and match.away_score is not None:
+        return True
+    return False
 
 
 def _has_usable_stats(stats: List[MatchStats]) -> bool:
