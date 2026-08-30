@@ -1,7 +1,7 @@
 """Cliente e scrapers para a API pública de futebol da ESPN.
 
-Os nomes ``fbref_id`` continuam sendo usados no banco por compatibilidade com
-o schema existente, mas os valores gravados por estes scrapers são IDs da ESPN.
+Os IDs de times, jogadores e partidas são identificados pelo campo ``espn_id``
+gravado no banco (valores fornecidos pela própria ESPN).
 """
 
 import logging
@@ -212,7 +212,7 @@ class TeamsScraper(ESPNClient):
                             "name": name,
                             "short_name": team.get("shortDisplayName") or team.get("abbreviation"),
                             "country": country,
-                            "fbref_id": str(team_id),
+                            "espn_id": str(team_id),
                             "logo_url": _team_logo(team),
                             "league": league,
                             "season": season,
@@ -222,14 +222,14 @@ class TeamsScraper(ESPNClient):
         logger.info("Encontrados %s times da ESPN para %s %s", len(result), league, season)
         return result
 
-    def get_team_details(self, fbref_id: str) -> Optional[dict]:
-        team_id = _espn_id(fbref_id)
+    def get_team_details(self, espn_id: str) -> Optional[dict]:
+        team_id = _espn_id(espn_id)
         payload = self._get_json(f"teams/{team_id}")
         team = payload.get("team") or {}
         if not team:
             return None
         return {
-            "fbref_id": team.get("id", team_id),
+            "espn_id": team.get("id", team_id),
             "name": team.get("displayName") or team.get("name"),
             "short_name": team.get("shortDisplayName") or team.get("abbreviation"),
             "logo_url": _team_logo(team),
@@ -252,7 +252,7 @@ class PlayersScraper(ESPNClient):
 
     def get_team_players(
         self,
-        fbref_team_id: str,
+        espn_team_id: str,
         season: Optional[str] = None,
         league: Optional[str] = None,
     ) -> List[dict]:
@@ -261,7 +261,7 @@ class PlayersScraper(ESPNClient):
         league_slug = resolve_espn_league(league)
         year = _season_year(league, season)
         payload = self._get_json(
-            f"{league_slug}/teams/{_espn_id(fbref_team_id)}/roster",
+            f"{league_slug}/teams/{_espn_id(espn_team_id)}/roster",
             {"season": year},
         )
         players: List[dict] = []
@@ -278,7 +278,7 @@ class PlayersScraper(ESPNClient):
                 {
                     "name": name,
                     "full_name": athlete.get("fullName") or name,
-                    "fbref_id": str(athlete_id),
+                    "espn_id": str(athlete_id),
                     "position": position_code,
                     "shirt_number": _safe_int(athlete.get("jersey")),
                     "nationality": athlete.get("citizenship"),
@@ -297,15 +297,15 @@ class PlayersScraper(ESPNClient):
         logger.info(
             "Encontrados %s jogadores da ESPN para o time %s (%s)",
             len(players),
-            fbref_team_id,
+            espn_team_id,
             season,
         )
         return players
 
-    def get_player_details(self, fbref_player_id: str) -> Optional[dict]:
+    def get_player_details(self, espn_player_id: str) -> Optional[dict]:
         # O endpoint de roster já entrega os campos disponíveis no modelo. A
         # ESPN não oferece um endpoint individual estável para este recurso.
-        return {"fbref_id": _espn_id(fbref_player_id)}
+        return {"espn_id": _espn_id(espn_player_id)}
 
 
 class MatchesScraper(ESPNClient):
@@ -337,11 +337,11 @@ class MatchesScraper(ESPNClient):
 
             matches.append(
                 {
-                    "fbref_id": event_id,
+                    "espn_id": event_id,
                     "home_team": (home.get("team") or {}).get("displayName"),
                     "away_team": (away.get("team") or {}).get("displayName"),
-                    "home_team_fbref_id": str(home.get("team", {}).get("id")),
-                    "away_team_fbref_id": str(away.get("team", {}).get("id")),
+                    "home_team_espn_id": str(home.get("team", {}).get("id")),
+                    "away_team_espn_id": str(away.get("team", {}).get("id")),
                     "competition": league,
                     "league": league,
                     "season": season,
@@ -424,8 +424,8 @@ class MatchesScraper(ESPNClient):
             raise last_error
         raise ValueError(f"Não foi possível localizar o evento ESPN {event_id}.")
 
-    def get_match_details(self, fbref_match_id: str) -> Optional[dict]:
-        payload = self._get_event_summary(fbref_match_id)
+    def get_match_details(self, espn_match_id: str) -> Optional[dict]:
+        payload = self._get_event_summary(espn_match_id)
         game_info = payload.get("gameInfo") or {}
         venue = game_info.get("venue") or {}
         officials = game_info.get("officials") or []
@@ -433,7 +433,7 @@ class MatchesScraper(ESPNClient):
         if officials:
             referee = officials[0].get("displayName") or officials[0].get("fullName")
         return {
-            "fbref_id": str(fbref_match_id),
+            "espn_id": str(espn_match_id),
             "venue": venue.get("fullName"),
             "attendance": _safe_int(game_info.get("attendance")),
             "referee": referee,
@@ -459,9 +459,9 @@ class StatisticsScraper(MatchesScraper):
         "interceptions": "interceptions",
     }
 
-    def get_match_statistics(self, fbref_match_id: str) -> Optional[dict]:
-        payload = self._get_event_summary(fbref_match_id)
-        stats: Dict[str, Any] = {"fbref_match_id": str(fbref_match_id)}
+    def get_match_statistics(self, espn_match_id: str) -> Optional[dict]:
+        payload = self._get_event_summary(espn_match_id)
+        stats: Dict[str, Any] = {"espn_match_id": str(espn_match_id)}
         for team_data in (payload.get("boxscore") or {}).get("teams", []):
             prefix = "home" if team_data.get("homeAway") == "home" else "away"
             for item in team_data.get("statistics", []):
@@ -488,6 +488,6 @@ class StatisticsScraper(MatchesScraper):
                 stats[f"{prefix}_{name}"] = value
         return stats
 
-    def get_team_season_stats(self, fbref_team_id: str, season: Optional[str] = None) -> List[dict]:
+    def get_team_season_stats(self, espn_team_id: str, season: Optional[str] = None) -> List[dict]:
         logger.warning("A ESPN não expõe este relatório no endpoint público; retornando lista vazia")
         return []

@@ -13,7 +13,7 @@ class TeamBase(BaseModel):
     stadium: Optional[str] = Field(None, description="Estádio do time", examples=["Maracanã"])
     founded: Optional[int] = Field(None, ge=0, le=2100, description="Ano de fundação", examples=[1895])
     website: Optional[str] = Field(None, description="Site oficial", examples=["https://www.flamengo.com.br"])
-    fbref_id: Optional[str] = Field(None, description="ID externo do time na ESPN (campo legado)", examples=["86"])
+    espn_id: Optional[str] = Field(None, description="ID externo do time na ESPN", examples=["86"])
     logo_url: Optional[str] = Field(None, description="URL do logo do time", examples=["https://example.com/logo.png"])
 
 
@@ -29,7 +29,7 @@ class TeamCreate(TeamBase):
                     "country": "Brasil",
                     "league": "Serie-A",
                     "founded": 1895,
-                    "fbref_id": "flamengo",
+                    "espn_id": "flamengo",
                 }
             ]
         }
@@ -50,7 +50,7 @@ class TeamUpdate(BaseModel):
     stadium: Optional[str] = Field(None, description="Estádio do time", examples=["Maracanã"])
     founded: Optional[int] = Field(None, ge=0, le=2100, description="Ano de fundação", examples=[1895])
     website: Optional[str] = Field(None, description="Site oficial", examples=["https://www.flamengo.com.br"])
-    fbref_id: Optional[str] = Field(None, description="ID externo do time na ESPN (campo legado)", examples=["86"])
+    espn_id: Optional[str] = Field(None, description="ID externo do time na ESPN", examples=["86"])
     logo_url: Optional[str] = Field(None, description="URL do logo do time", examples=["https://example.com/logo.png"])
 
 

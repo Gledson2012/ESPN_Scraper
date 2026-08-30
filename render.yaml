@@ -5,7 +5,7 @@
 # informe a connection string no campo DATABASE_URL ao aplicar este blueprint.
 services:
   - type: web
-    name: fbref-api
+    name: espn-api
     runtime: docker
     dockerfilePath: ./espn-scraper/Dockerfile
     dockerContext: ./espn-scraper

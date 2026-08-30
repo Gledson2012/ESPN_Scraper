@@ -216,7 +216,7 @@ def test_scrape_teams_requires_api_key(client, monkeypatch):
     # Evita acesso à rede: mocka o serviço de scraping
     from app.api import teams as teams_api
     monkeypatch.setattr(
-        teams_api.FBrefService,
+        teams_api.ESPNService,
         "scrape_and_save_teams",
         lambda self, league, season: [],
     )

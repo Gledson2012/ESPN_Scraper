@@ -9,7 +9,7 @@ export interface Team {
   stadium: Nullable<string>
   founded?: Nullable<number>
   website?: Nullable<string>
-  fbref_id?: Nullable<string>
+  espn_id?: Nullable<string>
   logo_url?: Nullable<string>
   created_at?: string
   updated_at?: string
@@ -27,7 +27,7 @@ export interface Player {
   weight_kg: Nullable<number>
   shirt_number: Nullable<number>
   team_id: Nullable<number>
-  fbref_id: Nullable<string>
+  espn_id: Nullable<string>
   photo_url: Nullable<string>
 }
 
@@ -45,7 +45,7 @@ export interface Match {
   away_xg?: Nullable<number>
   attendance?: Nullable<number>
   referee?: Nullable<string>
-  fbref_id?: Nullable<string>
+  espn_id?: Nullable<string>
   created_at?: string
   updated_at?: string
   stats?: MatchStats[]

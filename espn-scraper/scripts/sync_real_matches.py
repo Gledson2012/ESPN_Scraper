@@ -17,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.database import SessionLocal
 from app.seasons import resolve_season
-from app.services.fbref import FBrefService
+from app.services.espn_service import ESPNService
 
 
 def main() -> None:
@@ -39,16 +39,16 @@ def main() -> None:
     db = SessionLocal()
     try:
         season = resolve_season(args.league, args.season)
-        service = FBrefService(db)
+        service = ESPNService(db)
         teams = service.scrape_and_save_teams(args.league, season)
         matches = service.scrape_and_save_matches(args.league, season)
         player_count = 0
         if args.include_players:
             for team in teams:
-                if team.fbref_id:
+                if team.espn_id:
                     # Mantém None quando a temporada não foi informada para
                     # que o serviço também reconcilie o elenco atual.
-                    player_count += len(service.scrape_and_save_players(team.fbref_id, args.season))
+                    player_count += len(service.scrape_and_save_players(team.espn_id, args.season))
         print(
             f"Sincronização concluída ({args.league} {season}): "
             f"{len(teams)} times, {len(matches)} partidas e {player_count} jogadores."

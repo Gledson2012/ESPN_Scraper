@@ -40,7 +40,7 @@ class Match(Base):
     away_xg = Column(Float)
     attendance = Column(Integer)
     referee = Column(String(100))
-    fbref_id = Column(String(50), unique=True, index=True)
+    espn_id = Column(String(50), unique=True, index=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(
         DateTime(timezone=True),

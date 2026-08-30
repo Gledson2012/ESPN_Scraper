@@ -1,11 +1,11 @@
 from app.models import Match, MatchStats, Player, Team
-from app.services.fbref import FBrefService
+from app.services.espn_service import ESPNService
 
 
 def _teams(db_session):
-    home = Team(name="Time A", fbref_id="time-a", league="Serie-A")
-    away = Team(name="Time B", fbref_id="time-b", league="Serie-A")
-    other = Team(name="Time C", fbref_id="time-c", league="Serie-A")
+    home = Team(name="Time A", espn_id="time-a", league="Serie-A")
+    away = Team(name="Time B", espn_id="time-b", league="Serie-A")
+    other = Team(name="Time C", espn_id="time-c", league="Serie-A")
     db_session.add_all([home, away, other])
     db_session.commit()
     return home, away, other
@@ -20,17 +20,17 @@ def test_existing_match_is_updated_during_scrape(db_session):
         season="2024-2025",
         home_score=None,
         away_score=None,
-        fbref_id="match-upsert",
+        espn_id="match-upsert",
     )
     db_session.add(match)
     db_session.commit()
 
-    service = FBrefService(db_session)
+    service = ESPNService(db_session)
     updated = service._get_or_create_match(
         {
-            "fbref_id": "match-upsert",
-            "home_team_fbref_id": "time-a",
-            "away_team_fbref_id": "time-b",
+            "espn_id": "match-upsert",
+            "home_team_espn_id": "time-a",
+            "away_team_espn_id": "time-b",
             "competition": "Serie-A",
             "season": "2024-2025",
             "home_score": 2,
@@ -48,18 +48,18 @@ def test_existing_player_moves_to_current_team(db_session, monkeypatch):
     home, _, other = _teams(db_session)
     player = Player(
         name="Jogador",
-        fbref_id="jogador-1",
+        espn_id="jogador-1",
         team_id=home.id,
     )
     db_session.add(player)
     db_session.commit()
 
-    service = FBrefService(db_session)
+    service = ESPNService(db_session)
     monkeypatch.setattr(service.players_scraper, "get_player_details", lambda _: None)
     updated = service._get_or_create_player(
         {
             "name": "Jogador Atualizado",
-            "fbref_id": "jogador-1",
+            "espn_id": "jogador-1",
             "position": "FW",
             "shirt_number": 9,
         },
@@ -73,21 +73,21 @@ def test_existing_player_moves_to_current_team(db_session, monkeypatch):
 
 
 def test_player_scrape_reconciles_current_squad_without_deleting_history(db_session, monkeypatch):
-    team = Team(name="Real Madrid", fbref_id="real-madrid", league="La-Liga")
+    team = Team(name="Real Madrid", espn_id="real-madrid", league="La-Liga")
     db_session.add(team)
     db_session.flush()
-    stale = Player(name="Jogador que saiu", fbref_id="stale-player", team_id=team.id)
+    stale = Player(name="Jogador que saiu", espn_id="stale-player", team_id=team.id)
     db_session.add(stale)
     db_session.commit()
 
-    service = FBrefService(db_session)
+    service = ESPNService(db_session)
     monkeypatch.setattr(
         service.players_scraper,
         "get_team_players",
         lambda team_id, season, league: [
             {
                 "name": "Jogador atual",
-                "fbref_id": "current-player",
+                "espn_id": "current-player",
                 "position": "FW",
             }
         ],
@@ -96,25 +96,25 @@ def test_player_scrape_reconciles_current_squad_without_deleting_history(db_sess
 
     saved = service.scrape_and_save_players("real-madrid")
 
-    assert [player.fbref_id for player in saved] == ["current-player"]
+    assert [player.espn_id for player in saved] == ["current-player"]
     assert db_session.query(Player).filter(Player.id == stale.id).one().team_id is None
-    assert db_session.query(Player).filter(Player.fbref_id == "current-player").one().team_id == team.id
+    assert db_session.query(Player).filter(Player.espn_id == "current-player").one().team_id == team.id
 
 
 def test_historical_player_scrape_does_not_reconcile_current_squad(db_session, monkeypatch):
-    team = Team(name="Real Madrid", fbref_id="real-madrid-history", league="La-Liga")
+    team = Team(name="Real Madrid", espn_id="real-madrid-history", league="La-Liga")
     db_session.add(team)
     db_session.flush()
-    stale = Player(name="Jogador atual", fbref_id="current-player", team_id=team.id)
+    stale = Player(name="Jogador atual", espn_id="current-player", team_id=team.id)
     db_session.add(stale)
     db_session.commit()
 
-    service = FBrefService(db_session)
+    service = ESPNService(db_session)
     monkeypatch.setattr(
         service.players_scraper,
         "get_team_players",
         lambda team_id, season, league: [
-            {"name": "Jogador histórico", "fbref_id": "historical-player"}
+            {"name": "Jogador histórico", "espn_id": "historical-player"}
         ],
     )
     monkeypatch.setattr(service.players_scraper, "get_player_details", lambda _: None)
@@ -129,7 +129,7 @@ def test_invalid_stats_do_not_replace_existing_data(db_session, monkeypatch):
     match = Match(
         home_team_id=home.id,
         away_team_id=away.id,
-        fbref_id="match-stats-safe",
+        espn_id="match-stats-safe",
     )
     db_session.add(match)
     db_session.commit()
@@ -141,7 +141,7 @@ def test_invalid_stats_do_not_replace_existing_data(db_session, monkeypatch):
     )
     db_session.commit()
 
-    service = FBrefService(db_session)
+    service = ESPNService(db_session)
     monkeypatch.setattr(
         service.statistics_scraper,
         "get_match_statistics",
@@ -163,7 +163,7 @@ def test_partial_stats_do_not_replace_existing_data(db_session, monkeypatch):
     match = Match(
         home_team_id=home.id,
         away_team_id=away.id,
-        fbref_id="match-stats-partial",
+        espn_id="match-stats-partial",
     )
     db_session.add(match)
     db_session.commit()
@@ -175,7 +175,7 @@ def test_partial_stats_do_not_replace_existing_data(db_session, monkeypatch):
     )
     db_session.commit()
 
-    service = FBrefService(db_session)
+    service = ESPNService(db_session)
     monkeypatch.setattr(
         service.statistics_scraper,
         "get_match_statistics",
@@ -190,7 +190,7 @@ def test_partial_stats_do_not_replace_existing_data(db_session, monkeypatch):
 def test_complete_stats_update_without_erasing_missing_fields(db_session, monkeypatch):
     """Um scrape completo atualiza o que veio e conserva colunas ausentes."""
     home, away, _ = _teams(db_session)
-    match = Match(home_team_id=home.id, away_team_id=away.id, fbref_id="match-stats-upsert")
+    match = Match(home_team_id=home.id, away_team_id=away.id, espn_id="match-stats-upsert")
     db_session.add(match)
     db_session.commit()
     db_session.add_all(
@@ -201,7 +201,7 @@ def test_complete_stats_update_without_erasing_missing_fields(db_session, monkey
     )
     db_session.commit()
 
-    service = FBrefService(db_session)
+    service = ESPNService(db_session)
     monkeypatch.setattr(
         service.statistics_scraper,
         "get_match_statistics",

@@ -70,7 +70,7 @@ def cache_set(url: str, content: str) -> None:
 
 
 def _parse_soup(content: str) -> BeautifulSoup:
-    """Parseia HTML e também expõe tabelas que o FBref entrega em comentários."""
+    """Parseia HTML e também expõe tabelas que os provedores entregam em comentários."""
     soup = BeautifulSoup(content, "lxml")
     comments = soup.find_all(string=lambda value: isinstance(value, Comment))
     for comment in comments:

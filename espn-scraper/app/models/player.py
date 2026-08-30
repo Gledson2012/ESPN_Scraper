@@ -21,7 +21,7 @@ class Player(Base):
     weight_kg = Column(Float)
     shirt_number = Column(Integer)
     team_id = Column(Integer, ForeignKey("teams.id"), index=True)
-    fbref_id = Column(String(50), unique=True, index=True)
+    espn_id = Column(String(50), unique=True, index=True)
     photo_url = Column(String(500))
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(

@@ -70,7 +70,7 @@ def test_delete_team_with_associations_is_rejected(client, sample_team_data, sam
         json={
             "home_team_id": team["id"],
             "away_team_id": other["id"],
-            "fbref_id": "protected-team-match",
+            "espn_id": "protected-team-match",
         },
     )
 

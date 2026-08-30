@@ -92,8 +92,8 @@ source venv/bin/activate  # Linux/Mac
 # Instale as dependências
 pip install -r requirements.txt
 
-# Configure o PostgreSQL (crie o banco 'fbref_scraper')
-export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/fbref_scraper"
+# Configure o PostgreSQL (crie o banco 'espn_scraper')
+export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/espn_scraper"
 export API_KEY="uma-chave-forte"
 
 # Aplique o schema versionado
@@ -117,7 +117,7 @@ curl -X POST "http://localhost:8000/api/v1/teams/scrape?league=Serie-A" \
 ### 2️⃣ Scraping de Jogadores
 
 ```bash
-curl -X POST "http://localhost:8000/api/v1/players/scrape?fbref_team_id=flamengo" \
+curl -X POST "http://localhost:8000/api/v1/players/scrape?espn_team_id=flamengo" \
   -H "X-API-Key: uma-chave-forte"
 ```
 
@@ -339,7 +339,7 @@ As configurações podem ser definidas via variáveis de ambiente ou arquivo `.e
 
 | Variável | Descrição | Padrão |
 |----------|-----------|--------|
-| `DATABASE_URL` | URL do banco de dados | `postgresql://postgres:postgres@localhost:5432/fbref_scraper` |
+| `DATABASE_URL` | URL do banco de dados | `postgresql://postgres:postgres@localhost:5432/espn_scraper` |
 | `API_V1_PREFIX` | Prefixo da API | `/api/v1` |
 | `PROJECT_NAME` | Nome do projeto | `ESPN Football API` |
 | `DEBUG` | Modo debug | `false` |
@@ -477,8 +477,8 @@ O repositório inclui [`render.yaml`](render.yaml) (blueprint do Render). Sem ca
 3. No campo `DATABASE_URL`, cole a URL do Neon (adicione `?sslmode=require` se necessário)
    - `REDIS_URL` pode ficar vazia: o rate limit funciona em memória
    - `API_KEY` é gerada automaticamente pelo Render (copie depois para usar nos scrapes)
-4. Após o deploy, copie a URL pública (`https://fbref-api-xxxx.onrender.com`) e crie a
-   variável `PUBLIC_API_URL` no GitHub com `https://fbref-api-xxxx.onrender.com/api/v1`
+4. Após o deploy, copie a URL pública (`https://espn-api-xxxx.onrender.com`) e crie a
+   variável `PUBLIC_API_URL` no GitHub com `https://espn-api-xxxx.onrender.com/api/v1`
 
 > **Custos x limites do free tier:** tudo gratuito. A API "adormece" após ~15 min sem
 > uso e leva ~1 min para responder na primeira requisição. Evite sincronizações muito
@@ -493,7 +493,7 @@ Este projeto está licenciado sob a licença **MIT**. Veja o arquivo [LICENSE](L
 
 Este projeto é para fins **educacionais**. Respeite os termos de uso da ESPN e use o `REQUEST_DELAY` para evitar sobrecarregar o serviço.
 
-> A coleta atual usa os endpoints JSON públicos da ESPN. O campo de banco `fbref_id` é mantido apenas por compatibilidade e armazena o ID externo da ESPN.
+> A coleta atual usa os endpoints JSON públicos da ESPN. O campo `espn_id` armazena o ID externo de cada recurso (times, jogadores e partidas) fornecido pela ESPN.
 
 ---
 

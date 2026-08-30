@@ -1,4 +1,4 @@
-"""Testes do cache em disco usado pelos scrapers do FBref."""
+"""Testes do cache em disco usado pelos scrapers."""
 
 import time
 

@@ -28,7 +28,7 @@ class MatchBase(BaseModel):
     away_xg: Optional[float] = Field(None, ge=0, le=20, description="xG do time visitante", examples=[0.92])
     attendance: Optional[int] = Field(None, ge=0, description="Público presente", examples=[65000])
     referee: Optional[str] = Field(None, description="Árbitro da partida", examples=["Anderson Daronco"])
-    fbref_id: Optional[str] = Field(None, description="ID externo da partida na ESPN (campo legado)", examples=["401882899"])
+    espn_id: Optional[str] = Field(None, description="ID externo da partida na ESPN", examples=["401882899"])
 
     @model_validator(mode="after")
     def teams_must_be_different(self):
@@ -50,7 +50,7 @@ class MatchCreate(MatchBase):
                     "season": current_season("Serie-A"),
                     "home_score": 2,
                     "away_score": 1,
-                    "fbref_id": "match-123",
+                    "espn_id": "match-123",
                 }
             ]
         }
@@ -78,7 +78,7 @@ class MatchUpdate(BaseModel):
     away_xg: Optional[float] = Field(None, ge=0, le=20, description="xG do time visitante", examples=[0.92])
     attendance: Optional[int] = Field(None, ge=0, description="Público presente", examples=[65000])
     referee: Optional[str] = Field(None, description="Árbitro da partida", examples=["Anderson Daronco"])
-    fbref_id: Optional[str] = Field(None, description="ID externo da partida na ESPN (campo legado)", examples=["401882899"])
+    espn_id: Optional[str] = Field(None, description="ID externo da partida na ESPN", examples=["401882899"])
 
     @model_validator(mode="after")
     def teams_must_be_different_when_present(self):

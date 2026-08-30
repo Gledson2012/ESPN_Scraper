@@ -18,7 +18,7 @@ class Team(Base):
     stadium = Column(String(255))
     founded = Column(Integer)
     website = Column(String(255))
-    fbref_id = Column(String(50), unique=True, index=True)
+    espn_id = Column(String(50), unique=True, index=True)
     logo_url = Column(String(500))
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(

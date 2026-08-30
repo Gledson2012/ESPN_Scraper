@@ -4,7 +4,7 @@ from app.api import matches as matches_api
 from app.api import teams as teams_api
 from app.models import Team
 from app.seasons import current_season, resolve_season
-from app.services.fbref import FBrefService
+from app.services.espn_service import ESPNService
 
 
 def test_current_season_uses_calendar_year_for_brazilian_competitions():
@@ -37,7 +37,7 @@ def test_team_scrape_defaults_to_current_league_season(client, monkeypatch):
         captured.update(league=league, season=season)
         return []
 
-    monkeypatch.setattr(teams_api.FBrefService, "scrape_and_save_teams", fake_scrape)
+    monkeypatch.setattr(teams_api.ESPNService, "scrape_and_save_teams", fake_scrape)
 
     response = client.post("/api/v1/teams/scrape?league=Premier-League")
 
@@ -55,7 +55,7 @@ def test_match_scrape_keeps_explicit_historical_season(client, monkeypatch):
         captured.update(league=league, season=season)
         return []
 
-    monkeypatch.setattr(matches_api.FBrefService, "scrape_and_save_matches", fake_scrape)
+    monkeypatch.setattr(matches_api.ESPNService, "scrape_and_save_matches", fake_scrape)
 
     response = client.post(
         "/api/v1/matches/scrape?league=Serie-A&season=2024"
@@ -66,11 +66,11 @@ def test_match_scrape_keeps_explicit_historical_season(client, monkeypatch):
 
 
 def test_player_service_uses_team_league_for_current_season(db_session, monkeypatch):
-    team = Team(name="Real Madrid", fbref_id="real-madrid", league="La-Liga")
+    team = Team(name="Real Madrid", espn_id="real-madrid", league="La-Liga")
     db_session.add(team)
     db_session.commit()
 
-    service = FBrefService(db_session)
+    service = ESPNService(db_session)
     captured = {}
 
     def fake_scrape(team_id, season, league):

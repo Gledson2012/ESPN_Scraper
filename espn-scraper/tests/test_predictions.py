@@ -76,7 +76,7 @@ def test_predict_match_fallback_away_only_stats(client, sample_team_data, sample
             "away_team_id": team2["id"],
             "competition": "Serie-A",
             "season": "2024-2025",
-            "fbref_id": "fallback-match",
+            "espn_id": "fallback-match",
         },
     ).json()
 

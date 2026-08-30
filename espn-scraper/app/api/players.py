@@ -11,7 +11,7 @@ from app.database import get_db
 from app.models import Player, Team
 from app.schemas import PlayerCreate, PlayerUpdate, PlayerResponse
 from app.seasons import current_season
-from app.services.fbref import FBrefService
+from app.services.espn_service import ESPNService
 
 logger = logging.getLogger(__name__)
 
@@ -149,13 +149,13 @@ def delete_player(player_id: int, db: Session = Depends(get_db)):
     description="""
     Busca jogadores de um time específico na ESPN e salva no banco de dados.
 
-    **Como obter o `fbref_team_id` (nome legado):**
+    **Como obter o `espn_team_id`:**
     1. Sincronize a liga desejada pelo endpoint de times
-    2. Consulte o campo `fbref_id` do time, que contém o ID ESPN
+    2. Consulte o campo `espn_id` do time, que contém o ID ESPN
     """,
 )
 def scrape_players(
-    fbref_team_id: str = Query(..., description="ID ESPN do time (parâmetro legado)", examples=["86"]),
+    espn_team_id: str = Query(..., description="ID ESPN do time", examples=["86"]),
     season: Optional[str] = Query(
         None,
         description="Temporada; se omitida, usa a temporada atual do time",
@@ -165,11 +165,11 @@ def scrape_players(
 ):
     """Busca jogadores de um time na ESPN e salva no banco."""
     try:
-        service = FBrefService(db)
-        players = service.scrape_and_save_players(fbref_team_id, season)
+        service = ESPNService(db)
+        players = service.scrape_and_save_players(espn_team_id, season)
         return players
     except requests.exceptions.RequestException as e:
-        logger.warning(f"Falha ao acessar a ESPN ({fbref_team_id} {season}): {e}")
+        logger.warning(f"Falha ao acessar a ESPN ({espn_team_id} {season}): {e}")
         raise HTTPException(
             status_code=502,
             detail="Não foi possível acessar a ESPN (falha de rede ou limite temporário). Tente novamente mais tarde.",

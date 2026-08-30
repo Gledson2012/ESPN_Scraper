@@ -47,7 +47,7 @@ def test_stats_reject_team_not_in_match(client, sample_match_data, sample_team_d
     match = client.post("/api/v1/matches/", json=match_data).json()
     unrelated = client.post(
         "/api/v1/teams/",
-        json={**sample_team_data, "name": "Time sem partida", "fbref_id": "unrelated"},
+        json={**sample_team_data, "name": "Time sem partida", "espn_id": "unrelated"},
     ).json()
 
     response = client.post(

@@ -66,7 +66,7 @@ def test_partial_name_match_is_rejected():
         _resolve_teams("Premier")
 
 
-def test_team_scraper_builds_current_fbref_stats_url(monkeypatch):
+def test_team_scraper_builds_current_espn_stats_url(monkeypatch):
     scraper = TeamsScraper()
     captured = {}
     monkeypatch.setattr(
@@ -82,7 +82,7 @@ def test_team_scraper_builds_current_fbref_stats_url(monkeypatch):
     assert captured == {"path": "esp.1/teams", "params": {"limit": 1000}}
 
 
-def test_match_scraper_builds_current_fbref_schedule_url(monkeypatch):
+def test_match_scraper_builds_current_espn_schedule_url(monkeypatch):
     scraper = MatchesScraper()
     captured = {}
     monkeypatch.setattr(
@@ -135,7 +135,7 @@ def test_espn_team_scraper_normalizes_team_payload(monkeypatch):
             "name": "Real Madrid",
             "short_name": "Real Madrid",
             "country": "Spain",
-            "fbref_id": "86",
+            "espn_id": "86",
             "logo_url": "https://cdn.test/86.png",
             "league": "La-Liga",
             "season": "2026-2027",
@@ -168,7 +168,7 @@ def test_espn_player_scraper_converts_roster_fields(monkeypatch):
     )
 
     player = scraper.get_team_players("86", "2026-2027", "La-Liga")[0]
-    assert player["fbref_id"] == "231388"
+    assert player["espn_id"] == "231388"
     assert player["position"] == "FW"
     assert player["shirt_number"] == 10
     assert player["height_cm"] == 14.73

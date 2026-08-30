@@ -46,7 +46,7 @@ def test_global_search_returns_teams_players_and_matches(client, sample_match_da
             "nationality": "Brasil",
             "position": "FW",
             "team_id": team["id"],
-            "fbref_id": "gabriel-barbosa-search",
+            "espn_id": "gabriel-barbosa-search",
         },
     )
 

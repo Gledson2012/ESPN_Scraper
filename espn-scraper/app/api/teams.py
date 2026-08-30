@@ -11,7 +11,7 @@ from app.database import get_db
 from app.models import Match, MatchStats, Player, Team
 from app.schemas import MatchListResponse, PlayerResponse, TeamCreate, TeamSummaryResponse, TeamUpdate, TeamResponse
 from app.seasons import current_season, resolve_season
-from app.services.fbref import FBrefService
+from app.services.espn_service import ESPNService
 
 logger = logging.getLogger(__name__)
 
@@ -307,7 +307,7 @@ def scrape_teams(
     """Busca times de uma liga na ESPN e salva no banco."""
     try:
         season = resolve_season(league, season)
-        service = FBrefService(db)
+        service = ESPNService(db)
         teams = service.scrape_and_save_teams(league, season)
         return teams
     except ValueError as e:

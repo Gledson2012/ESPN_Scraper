@@ -101,7 +101,7 @@ def sample_team_data():
         "league": "Serie-A",
         "stadium": "Maracanã",
         "founded": 1895,
-        "fbref_id": "flamengo",
+        "espn_id": "flamengo",
     }
 
 
@@ -115,7 +115,7 @@ def sample_team2_data():
         "league": "Serie-A",
         "stadium": "Allianz Parque",
         "founded": 1914,
-        "fbref_id": "palmeiras",
+        "espn_id": "palmeiras",
     }
 
 
@@ -131,7 +131,7 @@ def sample_player_data(sample_team_data, client):
         "position": "FW",
         "shirt_number": 9,
         "team_id": team["id"],
-        "fbref_id": "gabriel-barbosa",
+        "espn_id": "gabriel-barbosa",
     }
 
 
@@ -147,7 +147,7 @@ def sample_match_data(sample_team_data, sample_team2_data, client):
         "season": "2024-2025",
         "home_score": 2,
         "away_score": 1,
-        "fbref_id": "match-123",
+        "espn_id": "match-123",
     }, team1, team2
 
 

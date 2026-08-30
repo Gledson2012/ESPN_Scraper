@@ -73,7 +73,7 @@ API para **dados de futebol da ESPN**, geração de **previsões de partidas** u
 ## 🚀 Início Rápido
 
 1. **Scraping de times**: `POST /api/v1/teams/scrape?league=Serie-A` (temporada atual por padrão)
-2. **Sincronização de jogadores**: `POST /api/v1/players/scrape?fbref_team_id=86` (ID ESPN; nome do parâmetro mantido por compatibilidade)
+2. **Sincronização de jogadores**: `POST /api/v1/players/scrape?espn_team_id=86` (ID ESPN do time)
 3. **Sincronização de partidas**: `POST /api/v1/matches/scrape?league=Serie-A` (temporada atual por padrão)
 4. **Gerar previsão**: `POST /api/v1/predictions/`
 

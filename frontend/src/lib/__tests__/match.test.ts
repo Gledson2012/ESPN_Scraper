@@ -12,7 +12,7 @@ const baseMatch: Match = {
   away_score: null,
   match_date: '2026-09-01T15:00:00',
   venue: 'Maracanã',
-  fbref_id: 'match-1',
+  espn_id: 'match-1',
 }
 
 describe('isFinishedMatch', () => {

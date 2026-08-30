@@ -13,7 +13,7 @@ from app.models import Match, MatchStats, Team
 from app.schemas import MatchCreate, MatchListResponse, MatchStatsResponse, MatchUpdate, MatchResponse, LiveMatchResponse
 from app.scrapers.espn import ESPN_LEAGUE_SLUGS, MatchesScraper
 from app.seasons import current_season, resolve_season
-from app.services.fbref import FBrefService
+from app.services.espn_service import ESPNService
 
 logger = logging.getLogger(__name__)
 
@@ -271,7 +271,7 @@ def scrape_matches(
     """Busca partidas de uma liga na ESPN e salva no banco."""
     try:
         season = resolve_season(league, season)
-        service = FBrefService(db)
+        service = ESPNService(db)
         matches = service.scrape_and_save_matches(league, season)
         return matches
     except ValueError as e:
@@ -307,10 +307,10 @@ def scrape_match_statistics(match_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Partida não encontrada")
 
     try:
-        service = FBrefService(db)
-        service.scrape_and_save_match_statistics(match.fbref_id)
+        service = ESPNService(db)
+        service.scrape_and_save_match_statistics(match.espn_id)
     except requests.exceptions.RequestException as e:
-        logger.warning(f"Falha ao acessar a ESPN (partida {match.fbref_id}): {e}")
+        logger.warning(f"Falha ao acessar a ESPN (partida {match.espn_id}): {e}")
         raise HTTPException(
             status_code=502,
             detail="Não foi possível acessar a ESPN (falha de rede ou limite temporário). Tente novamente mais tarde.",

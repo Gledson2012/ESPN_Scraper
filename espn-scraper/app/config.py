@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     )
 
     # Banco de dados
-    DATABASE_URL: str = "postgresql://postgres:postgres@localhost:5432/fbref_scraper"
+    DATABASE_URL: str = "postgresql://postgres:postgres@localhost:5432/espn_scraper"
 
     # API
     API_V1_PREFIX: str = "/api/v1"

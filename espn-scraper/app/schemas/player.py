@@ -16,7 +16,7 @@ class PlayerBase(BaseModel):
     weight_kg: Optional[float] = Field(None, ge=0, le=500, description="Peso em quilogramas", examples=[73.0])
     shirt_number: Optional[int] = Field(None, ge=0, le=99, description="Número da camisa", examples=[7])
     team_id: Optional[int] = Field(None, gt=0, description="ID do time", examples=[1])
-    fbref_id: Optional[str] = Field(None, description="ID externo do jogador na ESPN (campo legado)", examples=["231388"])
+    espn_id: Optional[str] = Field(None, description="ID externo do jogador na ESPN", examples=["231388"])
     photo_url: Optional[str] = Field(None, description="URL da foto do jogador na ESPN")
 
 
@@ -33,7 +33,7 @@ class PlayerCreate(PlayerBase):
                     "position": "FW",
                     "shirt_number": 9,
                     "team_id": 1,
-                    "fbref_id": "gabriel-barbosa",
+                    "espn_id": "gabriel-barbosa",
                 }
             ]
         }
@@ -55,7 +55,7 @@ class PlayerUpdate(BaseModel):
     weight_kg: Optional[float] = Field(None, ge=0, le=500, description="Peso em quilogramas", examples=[73.0])
     shirt_number: Optional[int] = Field(None, ge=0, le=99, description="Número da camisa", examples=[7])
     team_id: Optional[int] = Field(None, gt=0, description="ID do time", examples=[1])
-    fbref_id: Optional[str] = Field(None, description="ID externo do jogador na ESPN (campo legado)", examples=["231388"])
+    espn_id: Optional[str] = Field(None, description="ID externo do jogador na ESPN", examples=["231388"])
     photo_url: Optional[str] = Field(None, description="URL da foto do jogador na ESPN")
 
 

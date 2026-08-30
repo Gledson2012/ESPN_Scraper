@@ -1,5 +1,5 @@
 [project]
-name = "futebolbr"
+name = "espn-scraper"
 version = "1.1.0"
 description = "API para scraping de dados de futebol do FBref, previsões e odds"
 authors = [

@@ -48,7 +48,7 @@ source venv/bin/activate  # Linux/Mac
 pip install -r requirements.txt
 
 # Configurar banco de dados PostgreSQL
-# Crie um banco chamado 'fbref_scraper' e ajuste a URL em app/config.py ou via variável de ambiente
+# Crie um banco chamado 'espn_scraper' e ajuste a URL em app/config.py ou via variável de ambiente
 export API_KEY="uma-chave-forte"
 
 # Aplicar o schema versionado
@@ -83,7 +83,7 @@ uvicorn app.main:app --reload
 | POST | `/api/v1/players/` | Cria um jogador |
 | PUT | `/api/v1/players/{id}` | Atualiza um jogador |
 | DELETE | `/api/v1/players/{id}` | Deleta um jogador |
-| POST | `/api/v1/players/scrape?fbref_team_id=xxx` | Scraping de jogadores |
+| POST | `/api/v1/players/scrape?espn_team_id=xxx` | Scraping de jogadores |
 
 ### Partidas (`/api/v1/matches`)
 
@@ -202,7 +202,7 @@ espn-scraper/
 │   │   ├── prediction.py
 │   │   └── odds.py
 │   ├── services/
-│   │   ├── fbref.py         # Serviço legado que orquestra ESPN e banco
+│   │   ├── espn_service.py  # Serviço que orquestra a coleta ESPN e o banco
 │   │   └── cloudbet.py      # Serviço de integração com API Cloudbet
 │   ├── scrapers/            # Clientes da ESPN
 │   │   ├── espn.py          # Cliente e scrapers ESPN
@@ -241,7 +241,7 @@ As configurações podem ser definidas via variáveis de ambiente ou arquivo `.e
 
 | Variável | Descrição | Padrão |
 |----------|-----------|--------|
-| `DATABASE_URL` | URL do banco de dados | `postgresql://postgres:postgres@localhost:5432/fbref_scraper` |
+| `DATABASE_URL` | URL do banco de dados | `postgresql://postgres:postgres@localhost:5432/espn_scraper` |
 | `API_V1_PREFIX` | Prefixo da API | `/api/v1` |
 | `PROJECT_NAME` | Nome do projeto | `ESPN Football API` |
 | `DEBUG` | Modo debug | `false` |
@@ -331,7 +331,7 @@ O scraper suporta as seguintes ligas (mapeadas automaticamente para os códigos 
 
 Este projeto é para fins educacionais. Respeite os termos de uso da ESPN e use o `REQUEST_DELAY` para evitar sobrecarregar o serviço.
 
-> A coleta atual usa os endpoints JSON públicos da ESPN. O campo de banco `fbref_id` é mantido apenas por compatibilidade e armazena o ID externo da ESPN.
+> A coleta atual usa os endpoints JSON públicos da ESPN. O campo `espn_id` armazena o ID externo de cada recurso (times, jogadores e partidas) fornecido pela ESPN.
 
 ## 📄 Licença
 
