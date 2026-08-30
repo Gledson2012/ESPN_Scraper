@@ -313,7 +313,7 @@ def scrape_teams(
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except requests.exceptions.RequestException as e:
-        logger.warning(f"Falha ao acessar a ESPN ({league} {season}): {e}")
+        logger.warning("Falha ao acessar a ESPN (%s %s): %s", league, season, e)
         raise HTTPException(
             status_code=502,
             detail="Não foi possível acessar a ESPN (falha de rede ou limite temporário). Tente novamente mais tarde.",

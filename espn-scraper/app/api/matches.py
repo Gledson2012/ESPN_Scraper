@@ -109,7 +109,7 @@ def list_live_matches(
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except requests.exceptions.RequestException as e:
-        logger.warning(f"Falha ao acessar a ESPN (jogos ao vivo): {e}")
+        logger.warning("Falha ao acessar a ESPN (jogos ao vivo): %s", e)
         raise HTTPException(
             status_code=502,
             detail="Não foi possível acessar a ESPN (falha de rede ou limite temporário). Tente novamente mais tarde.",
@@ -277,7 +277,7 @@ def scrape_matches(
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except requests.exceptions.RequestException as e:
-        logger.warning(f"Falha ao acessar a ESPN ({league} {season}): {e}")
+        logger.warning("Falha ao acessar a ESPN (%s %s): %s", league, season, e)
         raise HTTPException(
             status_code=502,
             detail="Não foi possível acessar a ESPN (falha de rede ou limite temporário). Tente novamente mais tarde.",
@@ -310,7 +310,7 @@ def scrape_match_statistics(match_id: int, db: Session = Depends(get_db)):
         service = ESPNService(db)
         service.scrape_and_save_match_statistics(match.espn_id)
     except requests.exceptions.RequestException as e:
-        logger.warning(f"Falha ao acessar a ESPN (partida {match.espn_id}): {e}")
+        logger.warning("Falha ao acessar a ESPN (partida %s): %s", match.espn_id, e)
         raise HTTPException(
             status_code=502,
             detail="Não foi possível acessar a ESPN (falha de rede ou limite temporário). Tente novamente mais tarde.",

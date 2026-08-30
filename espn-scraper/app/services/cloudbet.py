@@ -85,7 +85,7 @@ class CloudbetService:
             }
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 404:
-                logger.warning(f"Evento {event_id} não encontrado na Cloudbet")
+                logger.warning("Evento %s não encontrado na Cloudbet", event_id)
                 return {}
             raise
 
@@ -128,7 +128,7 @@ class CloudbetService:
                         }
                         all_events.append(event)
             except Exception as e:
-                logger.warning(f"Erro ao buscar eventos de {comp.get('name')}: {e}")
+                logger.warning("Erro ao buscar eventos de %s: %s", comp.get("name"), e)
 
         return all_events
 

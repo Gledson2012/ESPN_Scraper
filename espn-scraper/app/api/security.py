@@ -170,7 +170,7 @@ def _limiter_dependency(limiter) -> Callable[[Request], None]:
     def dependency(request: Request) -> None:
         ip = request.client.host if request.client else "unknown"
         if not limiter.allow(ip):
-            logger.warning(f"Rate limit excedido para o IP {ip}")
+            logger.warning("Rate limit excedido para o IP %s", ip)
             raise HTTPException(
                 status_code=429,
                 detail="Muitas requisições. Aguarde e tente novamente.",

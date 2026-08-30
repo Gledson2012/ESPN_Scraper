@@ -489,6 +489,21 @@ O repositório inclui [`render.yaml`](render.yaml) (blueprint do Render). Sem ca
 
 Este projeto está licenciado sob a licença **MIT**. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
 
+## 🔄 Mudanças Recentes
+
+**Renomeação de identificadores externos** — o projeto passou a usar a API da ESPN e
+os nomes legados do FBref foram removidos para refletir isso:
+
+- Campo/coluna de banco: `fbref_id` → `espn_id`
+- Query param de scraping de jogadores: `fbref_team_id` → `espn_team_id`
+- Classe/serviço: `FBrefService` → `ESPNService`
+- Nome do pacote: `futebolbr` → `espn-scraper`
+- Banco de dados padrão: `fbref_scraper` → `espn_scraper`
+
+> Clientes da API que usavam `fbref_team_id` devem migrar para `espn_team_id`.
+> Bancos existentes precisam da migração Alembic `4e1a0b2c3d5f` (renomeia as
+> colunas `fbref_id` para `espn_id`).
+
 ## ⚠️ Aviso Legal
 
 Este projeto é para fins **educacionais**. Respeite os termos de uso da ESPN e use o `REQUEST_DELAY` para evitar sobrecarregar o serviço.

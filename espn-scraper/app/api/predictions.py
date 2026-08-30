@@ -2,6 +2,7 @@ import math
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -172,21 +173,23 @@ def _calculate_league_avg_goals(
     competition: str | None = None,
     season: str | None = None,
 ) -> float:
-    """Calcula a média de gols usando o recorte de competição informado."""
-    total_goals = 0
-    total_matches = 0
+    """Calcula a média de gols usando o recorte de competição informado.
 
-    query = db.query(Match)
+    Usa uma única query agregada em vez de carregar todas as partidas em memória.
+    """
+    query = (
+        db.query(
+            func.coalesce(func.sum(Match.home_score + Match.away_score), 0),
+            func.count(Match.id),
+        )
+        .filter(Match.home_score.isnot(None), Match.away_score.isnot(None))
+    )
     if competition:
         query = query.filter(Match.competition == competition)
     if season:
         query = query.filter(Match.season == season)
 
-    matches = query.all()
-    for match in matches:
-        if match.home_score is not None and match.away_score is not None:
-            total_goals += match.home_score + match.away_score
-            total_matches += 1
+    total_goals, total_matches = query.one()
 
     if total_matches == 0:
         return DEFAULT_LEAGUE_AVG_GOALS
@@ -300,11 +303,16 @@ def _has_usable_stats(stats: List[MatchStats]) -> bool:
     return any(_has_usable_stat(stat) for stat in stats)
 
 
-def _poisson_probability(k: int, lam: float) -> float:
-    """Calcula a probabilidade de Poisson P(X = k)."""
+def _poisson_probabilities(lam: float) -> List[float]:
+    """Pré-computa o vetor de probabilidades P(X = k) para k em [0, MAX_GOALS]."""
     if lam < 0 or not math.isfinite(lam):
-        return 0.0
-    return (lam**k * math.exp(-lam)) / math.factorial(k)
+        return [0.0] * (MAX_GOALS + 1)
+    # Termo P(0) computado de forma estável para lâmbdas pequenos.
+    p0 = math.exp(-lam)
+    probs = [p0]
+    for k in range(1, MAX_GOALS + 1):
+        probs.append(probs[-1] * lam / k)
+    return probs
 
 
 def _poisson_match_probability(home_lambda: float, away_lambda: float, outcome: str) -> float:
@@ -319,11 +327,13 @@ def _poisson_match_probability(home_lambda: float, away_lambda: float, outcome: 
     Returns:
         Probabilidade do resultado
     """
-    prob = 0.0
+    home_probs = _poisson_probabilities(home_lambda)
+    away_probs = _poisson_probabilities(away_lambda)
 
+    prob = 0.0
     for i in range(MAX_GOALS + 1):
         for j in range(MAX_GOALS + 1):
-            p = _poisson_probability(i, home_lambda) * _poisson_probability(j, away_lambda)
+            p = home_probs[i] * away_probs[j]
             if outcome == "home" and i > j:
                 prob += p
             elif outcome == "draw" and i == j:
@@ -336,12 +346,13 @@ def _poisson_match_probability(home_lambda: float, away_lambda: float, outcome: 
 
 def _over_2_5_probability(home_lambda: float, away_lambda: float) -> float:
     """Calcula a probabilidade de over 2.5 gols."""
-    prob_under = 0.0
+    home_probs = _poisson_probabilities(home_lambda)
+    away_probs = _poisson_probabilities(away_lambda)
 
+    prob_under = 0.0
     for i in range(MAX_GOALS + 1):
         for j in range(MAX_GOALS + 1):
             if i + j <= 2:
-                p = _poisson_probability(i, home_lambda) * _poisson_probability(j, away_lambda)
-                prob_under += p
+                prob_under += home_probs[i] * away_probs[j]
 
     return max(0.0, min(1.0, 1 - prob_under))

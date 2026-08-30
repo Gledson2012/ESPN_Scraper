@@ -51,7 +51,7 @@ class ESPNService:
             saved_teams.append(team)
 
         self.db.commit()
-        logger.info(f"Salvos {len(saved_teams)} times da liga {league} {season}")
+        logger.info("Salvos %s times da liga %s %s", len(saved_teams), league, season)
         return saved_teams
 
     def _get_or_create_team(self, team_data: dict) -> Team:
@@ -123,7 +123,7 @@ class ESPNService:
         """Busca jogadores de um time na ESPN e salva no banco."""
         team = self.db.query(Team).filter(Team.espn_id == espn_team_id).first()
         if not team:
-            logger.warning(f"Time com espn_id {espn_team_id} não encontrado no banco")
+            logger.warning("Time com espn_id %s não encontrado no banco", espn_team_id)
             return []
 
         syncing_current_squad = not (season and season.strip())
@@ -151,7 +151,7 @@ class ESPNService:
             self._detach_players_not_in_current_squad(team.id, players_data)
 
         self.db.commit()
-        logger.info(f"Salvos {len(saved_players)} jogadores do time {espn_team_id}")
+        logger.info("Salvos %s jogadores do time %s", len(saved_players), espn_team_id)
         return saved_players
 
     def _get_or_create_player(self, player_data: dict, team_id: int) -> Player:
@@ -240,7 +240,7 @@ class ESPNService:
                 saved_matches.append(match)
 
         self.db.commit()
-        logger.info(f"Salvas {len(saved_matches)} partidas da liga {league} {season}")
+        logger.info("Salvas %s partidas da liga %s %s", len(saved_matches), league, season)
         return saved_matches
 
     def _detach_players_not_in_current_squad(
@@ -310,7 +310,7 @@ class ESPNService:
             return match
 
         if not home_team or not away_team or home_team.id == away_team.id:
-            logger.warning(f"Times não encontrados para partida {espn_id}")
+            logger.warning("Times não encontrados para partida %s", espn_id)
             return None
 
         match = Match(
@@ -340,7 +340,7 @@ class ESPNService:
         """Busca estatísticas de uma partida na ESPN e salva no banco."""
         match = self.db.query(Match).filter(Match.espn_id == espn_match_id).first()
         if not match:
-            logger.warning(f"Partida com espn_id {espn_match_id} não encontrada no banco")
+            logger.warning("Partida com espn_id %s não encontrada no banco", espn_match_id)
             return None
 
         stats_data = self.statistics_scraper.get_match_statistics(espn_match_id) or {}
@@ -382,7 +382,7 @@ class ESPNService:
         )
 
         self.db.commit()
-        logger.info(f"Estatísticas salvas para partida {espn_match_id}")
+        logger.info("Estatísticas salvas para partida %s", espn_match_id)
         return home_stats
 
     def _upsert_match_stats(
@@ -451,7 +451,7 @@ class ESPNService:
                 except (TypeError, ValueError):
                     logger.debug("Ano de fundação inválido para o time %s: %s", espn_id, founded)
         except Exception as e:  # noqa: BLE001
-            logger.warning(f"Erro ao buscar detalhes do time {espn_id}: {e}")
+            logger.warning("Erro ao buscar detalhes do time %s: %s", espn_id, e)
 
     def _enrich_player(self, player: Player, espn_id: str) -> None:
         """Preenche detalhes opcionais do jogador com parsing tolerante."""
@@ -495,7 +495,7 @@ class ESPNService:
                 except (ValueError, TypeError):
                     logger.debug("Peso inválido para o jogador %s: %s", espn_id, weight_text)
         except Exception as e:  # noqa: BLE001
-            logger.warning(f"Erro ao buscar detalhes do jogador {espn_id}: {e}")
+            logger.warning("Erro ao buscar detalhes do jogador %s: %s", espn_id, e)
 
     def _enrich_match(self, match: Match, espn_id: str) -> None:
         """Preenche detalhes opcionais da partida sem ocultar falhas de rede."""
@@ -505,4 +505,4 @@ class ESPNService:
                 self._update_fields(match, details, ["venue", "attendance", "referee"])
                 self._update_fields(match, details, ["home_score", "away_score"])
         except Exception as e:  # noqa: BLE001
-            logger.warning(f"Erro ao buscar detalhes da partida {espn_id}: {e}")
+            logger.warning("Erro ao buscar detalhes da partida %s: %s", espn_id, e)

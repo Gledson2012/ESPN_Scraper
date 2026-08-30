@@ -169,7 +169,7 @@ def scrape_players(
         players = service.scrape_and_save_players(espn_team_id, season)
         return players
     except requests.exceptions.RequestException as e:
-        logger.warning(f"Falha ao acessar a ESPN ({espn_team_id} {season}): {e}")
+        logger.warning("Falha ao acessar a ESPN (%s %s): %s", espn_team_id, season, e)
         raise HTTPException(
             status_code=502,
             detail="Não foi possível acessar a ESPN (falha de rede ou limite temporário). Tente novamente mais tarde.",

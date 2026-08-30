@@ -58,7 +58,7 @@ def cache_set(url: str, content: str) -> None:
         return
     # Evita cachear respostas vazias/truncadas (ex: bloqueio anti-bot sem conteúdo)
     if len(content) < MIN_CONTENT_LENGTH:
-        logger.debug(f"Conteúdo muito curto ({len(content)} chars); não gravando cache de {url}")
+        logger.debug("Conteúdo muito curto (%s chars); não gravando cache de %s", len(content), url)
         return
     path = _cache_path(url)
     tmp = path.with_suffix(".tmp")
@@ -66,7 +66,7 @@ def cache_set(url: str, content: str) -> None:
         tmp.write_text(content, encoding="utf-8")
         os.replace(tmp, path)
     except OSError:
-        logger.debug(f"Falha ao gravar cache para {url}")
+        logger.debug("Falha ao gravar cache para %s", url)
 
 
 def _parse_soup(content: str) -> BeautifulSoup:
@@ -86,7 +86,7 @@ def get_soup(session, url: str) -> BeautifulSoup:
     """Busca a URL usando cache em disco e retorna o BeautifulSoup da página."""
     cached = cache_get(url)
     if cached is not None:
-        logger.info(f"Cache hit: {url}")
+        logger.info("Cache hit: %s", url)
         return _parse_soup(cached)
 
     response = session.get(url, timeout=settings.REQUEST_TIMEOUT)
