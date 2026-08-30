@@ -78,6 +78,23 @@ O painel estará disponível em `http://localhost:5173`. Ele consome a API em
 `http://localhost:8000/api/v1` por padrão; ajuste `VITE_API_URL` no `.env` se
 necessário.
 
+### 📱 Aplicativo Android
+
+O projeto também possui um aplicativo Android baseado em Capacitor, usando a
+mesma interface do painel React. Depois de configurar uma URL pública da API em
+`frontend/.env`, gere o APK assim:
+
+```bash
+cd frontend
+npm install
+npm run android:build
+```
+
+O arquivo gerado estará em
+`frontend/android/app/build/outputs/apk/debug/app-debug.apk`. Para abrir no
+Android Studio, use `npm run android:open`; para instalar/executar em um
+emulador ou dispositivo conectado, use `npm run android:run`.
+
 ### 🐍 Localmente
 
 ```bash
@@ -461,7 +478,7 @@ O repositório já inclui [`railway.json`](railway.json) (builder Dockerfile, he
    | `DATABASE_URL` | referência `${{Postgres.DATABASE_URL}}` do plugin |
    | `REDIS_URL` | referência `${{Redis.REDIS_URL}}` do plugin |
    | `API_KEY` | chave forte (scraping/escrita) |
-   | `CORS_ORIGINS` | `https://gledson2012.github.io` |
+   | `CORS_ORIGINS` | `https://gledson2012.github.io,https://localhost,capacitor://localhost` |
 4. Gere a URL pública (**Settings → Networking → Generate Domain**)
 5. Volte ao GitHub e crie a variável `PUBLIC_API_URL` com `https://seu-dominio.up.railway.app/api/v1`
 

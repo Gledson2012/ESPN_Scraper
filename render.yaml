@@ -20,7 +20,7 @@ services:
       - key: API_KEY
         generateValue: true
       - key: CORS_ORIGINS
-        value: https://gledson2012.github.io
+        value: https://gledson2012.github.io,https://localhost,capacitor://localhost
       - key: CLOUDBET_API_KEY
         sync: false
       - key: ALLOW_UNAUTHENTICATED_SCRAPING

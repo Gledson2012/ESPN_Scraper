@@ -1,14 +1,15 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import { BrowserRouter } from 'react-router-dom'
+import { HashRouter } from 'react-router-dom'
 import App from './App'
 import './styles/index.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    {/* BASE_URL acompanha o `base` do Vite ('/ESPN_Scraper/' no GitHub Pages) */}
-    <BrowserRouter basename={import.meta.env.BASE_URL}>
+    {/* HashRouter é mais robusto no app Android (Capacitor): as rotas ficam em
+        uma única URL com '#', evitando 404/deep-links ao recarregar na WebView. */}
+    <HashRouter>
       <App />
-    </BrowserRouter>
+    </HashRouter>
   </React.StrictMode>,
 )

@@ -2,7 +2,8 @@ import { mockMatches, mockOdds, mockTeams } from '../data/mockData'
 import type { Catalog, LiveMatch, Match, MatchStats, OddsEvent, Overview, Player, Prediction, PredictionRequest, SearchResponse, SoccerOddsResponse, SyncStatus, Team, TeamSummary } from '../types/api'
 
 const browserHost = typeof window !== 'undefined' ? window.location.hostname : 'localhost'
-const configuredApiUrl = import.meta.env.VITE_API_URL?.trim()
+
+const API_URL_STORAGE_KEY = 'espn_api_url'
 
 function normalizeApiUrl(value?: string): string {
   if (!value) return ''
@@ -11,9 +12,39 @@ function normalizeApiUrl(value?: string): string {
   return normalized.endsWith('/api/v1') ? normalized : `${normalized}/api/v1`
 }
 
-const API_URL = normalizeApiUrl(
-  configuredApiUrl || (!import.meta.env.PROD ? `http://${browserHost}:8000/api/v1` : ''),
+function getStoredApiUrl(): string {
+  if (typeof window === 'undefined') return ''
+  try {
+    return normalizeApiUrl(window.localStorage.getItem(API_URL_STORAGE_KEY) ?? '')
+  } catch {
+    return ''
+  }
+}
+
+const defaultApiUrl = normalizeApiUrl(
+  (import.meta.env.VITE_API_URL as string | undefined)?.trim()
+    || (!import.meta.env.PROD ? `http://${browserHost}:8000/api/v1` : ''),
 )
+
+/** URL base atual (configuração em runtime tem prioridade sobre o build). */
+export function getApiUrl(): string {
+  return getStoredApiUrl() || defaultApiUrl
+}
+
+/** Configura (ou limpa) a URL base da API em runtime, sem recompilar. */
+export function setApiUrl(value?: string): string {
+  const url = normalizeApiUrl(value ?? '')
+  if (typeof window !== 'undefined') {
+    try {
+      if (url) window.localStorage.setItem(API_URL_STORAGE_KEY, url)
+      else window.localStorage.removeItem(API_URL_STORAGE_KEY)
+    } catch {
+      // Ignora falhas de armazenamento (ex.: modo privado).
+    }
+  }
+  return url
+}
+
 const REQUEST_TIMEOUT_MS = 15_000
 
 export class ApiError extends Error {
@@ -27,7 +58,7 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  if (!API_URL) {
+  if (!getApiUrl()) {
     throw new ApiError('A URL pública da API não foi configurada; o painel está em modo demonstração.')
   }
 
@@ -35,7 +66,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
 
   try {
-    const response = await fetch(`${API_URL}${path}`, {
+    const response = await fetch(`${getApiUrl()}${path}`, {
       ...options,
       signal: options?.signal ?? controller.signal,
       headers: { 'Content-Type': 'application/json', ...options?.headers },
@@ -69,7 +100,7 @@ function expectObject<T>(value: unknown, resource: string): T {
 }
 
 export const api = {
-  baseUrl: API_URL,
+  baseUrl: getApiUrl(),
 
   async getTeams(): Promise<Team[]> {
     return expectArray<Team>(await request<unknown>('/teams/?limit=100'), 'times')
